@@ -4,11 +4,18 @@ import type { ReactNode } from "react";
 import { Icon } from "./Icon";
 import { PanelHeader } from "./PanelHeader";
 import { useSettings, type Settings } from "./useSettings";
+import { useTheme, type Theme } from "./useTheme";
 
 /** Choices for how much longer a trip may take to walk less (see pickBestPairPerTrip). */
 const WALK_TIE_OPTIONS = [0, 1, 2, 3, 4, 5, 7, 10, 15];
 /** Choices for the longest walk to a stop. */
 const MAX_WALK_OPTIONS = [3, 5, 8, 10, 12, 15, 20, 25];
+
+const THEMES: { value: Theme; label: string }[] = [
+  { value: "auto", label: "Automatisch" },
+  { value: "light", label: "Licht" },
+  { value: "dark", label: "Donker" },
+];
 
 const MAP_STYLES: { value: Settings["mapStyle"]; label: string }[] = [
   { value: "calm", label: "Rustige kaart" },
@@ -93,6 +100,7 @@ export function SettingsPanel({
   onClose: () => void;
 }) {
   const { settings, update } = useSettings();
+  const [theme, setTheme] = useTheme();
 
   return (
     <div className="flex flex-col gap-3">
@@ -145,6 +153,25 @@ export function SettingsPanel({
             options={WALK_TIE_OPTIONS.map((minutes) => ({ value: minutes, label: minutes === 0 ? "nee" : `tot ${minutes} min` }))}
             onChange={(minutes) => void update({ ...settings, walkTieMinutes: minutes })}
           />
+        </Row>
+        <Row title="Weergave" detail="Automatisch volgt je telefoon of computer">
+          <span className="relative inline-flex shrink-0">
+            <select
+              name="theme"
+              value={theme}
+              onChange={(event) => setTheme(event.target.value as Theme)}
+              className="h-11 appearance-none rounded-lg border border-rand bg-achtergrond pr-8 pl-3 text-body-m font-semibold text-tekst"
+            >
+              {THEMES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <span className="pointer-events-none absolute top-1/2 right-3 flex -translate-y-1/2">
+              <Icon name="chevD" size={16} />
+            </span>
+          </span>
         </Row>
         {notifications}
         {savedRoutes}

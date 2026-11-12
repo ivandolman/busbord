@@ -724,12 +724,12 @@ export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarg
             ({ line, wait }) =>
               // The time next to the badge, in plain text: a number inside it would read as a line.
               `<span style="background:${lineColor(line)};color:${textOn(lineColor(line))};border-radius:5px;padding:1px 5px;min-width:24px;text-align:center;font:700 13px/17px var(--font-sans)">${escapeHtml(line.line)}</span>${
-                wait ? `<span style="color:#111418;font:600 13px/17px var(--font-sans);padding:0 4px 0 1px">${escapeHtml(wait)}</span>` : ""
+                wait ? `<span style="color:var(--color-tekst);font:600 13px/17px var(--font-sans);padding:0 4px 0 1px">${escapeHtml(wait)}</span>` : ""
               }`,
           )
           .join("");
-        const html = `<div style="display:flex;align-items:center;gap:4px;width:max-content;padding:3px 5px;border-radius:9px;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.2)">${chips}${
-          more > 0 ? `<span style="color:#5b6470;font:600 13px/17px var(--font-sans);padding:0 2px">+${more}</span>` : ""
+        const html = `<div style="display:flex;align-items:center;gap:4px;width:max-content;padding:3px 5px;border-radius:9px;background:var(--color-achtergrond);box-shadow:0 4px 16px rgba(0,0,0,.2)">${chips}${
+          more > 0 ? `<span style="color:var(--color-tekst-zacht);font:600 13px/17px var(--font-sans);padding:0 2px">+${more}</span>` : ""
         }</div>`;
         const marker = L.marker(layer.getLatLng(), {
           icon: L.divIcon({ className: "", html, iconSize: [0, 0], iconAnchor: [-(radius + 1), radius + LABEL_HEIGHT_PX] }),

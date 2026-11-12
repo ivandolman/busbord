@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* Tokens from the Figma design ("Bestemmingsbord" variables and text styles). Light only. */
+/* Tokens from the Figma design ("Bestemmingsbord" variables and text styles). Dark values below. */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
@@ -58,9 +58,88 @@
   color-scheme: light;
 }
 
+/*
+ * Dark mode: follows the system unless the device chose "Licht" or "Donker" in the settings
+ * (data-theme on <html>, set before the first paint by the script in layout.tsx). The same values
+ * twice, because one block is a media query and the other an attribute.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-tekst: #e8eaed;
+    --color-tekst-zacht: #9aa3ae;
+    --color-achtergrond: #161a21;
+    --color-oppervlak: #20262f;
+    --color-rand: #2f3742;
+    --color-donker: #2a3445;
+    --color-op-donker: #ffffff;
+    --color-accent: #4d84f0;
+    --color-accent-zacht: #1b2a46;
+    --color-lopen: #5b8def;
+    --color-bestemming: #f2555a;
+    --color-succes: #34a853;
+    --color-waarschuwing: #f0b45a;
+    --color-waarschuwing-bg: #33260f;
+    --color-waarschuwing-op-donker: #ffc66b;
+    --color-kaart-basis: #1b1f25;
+    --color-waarschuwing-rand: #6b4f1d;
+    --color-fout: #ff6b61;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-tekst: #e8eaed;
+  --color-tekst-zacht: #9aa3ae;
+  --color-achtergrond: #161a21;
+  --color-oppervlak: #20262f;
+  --color-rand: #2f3742;
+  --color-donker: #2a3445;
+  --color-op-donker: #ffffff;
+  --color-accent: #4d84f0;
+  --color-accent-zacht: #1b2a46;
+  --color-lopen: #5b8def;
+  --color-bestemming: #f2555a;
+  --color-succes: #34a853;
+  --color-waarschuwing: #f0b45a;
+  --color-waarschuwing-bg: #33260f;
+  --color-waarschuwing-op-donker: #ffc66b;
+  --color-kaart-basis: #1b1f25;
+  --color-waarschuwing-rand: #6b4f1d;
+  --color-fout: #ff6b61;
+}
+
 /* Mute the base map so the lines stand out. */
 .network-tiles {
   filter: grayscale(0.7) brightness(1.04) contrast(0.9);
+}
+/* No dark base map exists for these sources: turn the light one around (water stays blue-ish). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .network-tiles {
+    filter: invert(1) hue-rotate(180deg) grayscale(0.6) brightness(0.8) contrast(0.85);
+  }
+}
+:root[data-theme="dark"] .network-tiles {
+  filter: invert(1) hue-rotate(180deg) grayscale(0.6) brightness(0.8) contrast(0.85);
+}
+
+/* Leaflet's own white boxes (popups, attribution, zoom) follow the theme. */
+:root .leaflet-popup-content-wrapper,
+:root .leaflet-popup-tip {
+  background: var(--color-achtergrond);
+  color: var(--color-tekst);
+}
+:root .leaflet-container .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-achtergrond) 80%, transparent);
+  color: var(--color-tekst-zacht);
+}
+:root .leaflet-container .leaflet-control-attribution a {
+  color: var(--color-accent);
+}
+:root .leaflet-bar a,
+:root .leaflet-bar a:hover {
+  background: var(--color-achtergrond);
+  color: var(--color-tekst);
+  border-color: var(--color-rand);
 }
 
 /* Leaflet popups as the design's cards (the stop card on a wide screen). */
@@ -77,7 +156,8 @@
 .leaflet-popup.card-popup .leaflet-popup-close-button {
   display: none;
 }
-.leaflet-container {
+/* ":root" outranks leaflet.css, which is loaded after this file. */
+:root .leaflet-container {
   font-family: var(--font-sans);
   background: var(--color-kaart-basis);
 }

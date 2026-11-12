@@ -115,8 +115,9 @@ own sheet instead of a popup (`src/components/Sheet.tsx`, `BoardApp.tsx`).
 The look follows the Figma design ("Concept B – uitgewerkt"): its colour variables and text
 styles are Tailwind tokens in `src/app/globals.css` (`text-tekst`, `bg-oppervlak`, `text-body-s`,
 `text-kop-xl`, …), its icons are `public/icons/*.svg` drawn by `src/components/Icon.tsx`, and
-line badges use each line's own colour from the feed (`useNetwork.ts`). Light only, like the
-design.
+line badges use each line's own colour from the feed (`useNetwork.ts`). Dark mode follows the
+system, or "Weergave" in the settings (per device, `src/lib/theme.ts`): the same tokens get dark
+values in `globals.css`, and the base map, which has no dark version, is shown inverted.
 
 ## How it works
 
