@@ -9,15 +9,20 @@ import { cn } from "@/lib/utils"
 // --- STYLING ---
 
 const mapButtonVariants = cva(
-    "flex size-11 items-center justify-center rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.16)]",
+    "ease-sheet flex size-11 items-center justify-center rounded-full shadow-[0_4px_16px_rgba(0,0,0,0.16)] transition-[opacity,scale] duration-[420ms] motion-reduce:transition-none",
     {
         variants: {
+            covered: {
+                true: "pointer-events-none scale-75 opacity-0",
+                false: "",
+            },
             pressed: {
                 true: "bg-dark text-on-dark",
                 false: "bg-background text-foreground hover:bg-surface",
             },
         },
         defaultVariants: {
+            covered: false,
             pressed: false,
         },
     },
@@ -30,18 +35,27 @@ interface MapButtonProps extends ComponentProps<"button"> {
     label: string
     /** A toggle: shown dark while on. Leave out for a plain action. */
     pressed?: boolean
+    /** A sheet covers where it sits: faded out and out of reach until there is room again. */
+    covered?: boolean
 }
 
 // --- COMPONENT ---
 
-export default function MapButton({ label, pressed, className, ...props }: MapButtonProps) {
+export default function MapButton({
+    label,
+    pressed,
+    covered = false,
+    className,
+    ...props
+}: MapButtonProps) {
     return (
         <button
             type="button"
             aria-label={label}
             title={label}
             aria-pressed={pressed}
-            className={cn(mapButtonVariants({ pressed: pressed ?? false }), className)}
+            inert={covered}
+            className={cn(mapButtonVariants({ pressed: pressed ?? false, covered }), className)}
             {...props}
         />
     )

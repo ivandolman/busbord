@@ -16,6 +16,7 @@ import { cva } from "class-variance-authority"
 import { useFixedViewport, type FixedViewport } from "@/hooks/use-fixed-viewport"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { useSheetDrag } from "@/hooks/use-sheet-drag"
+import { publishSheetMetrics, resetSheetMetrics } from "@/hooks/use-sheet-metrics"
 import { cn } from "@/lib/utils"
 
 // --- CONSTANTS ---
@@ -189,6 +190,7 @@ export function Sheet({
         const root = document.documentElement
         root.style.setProperty("--sheet-h", visibleNow !== null ? `${visibleNow}px` : "0px")
         root.style.setProperty("--app-h", measured ? `${height}px` : "100dvh")
+        publishSheetMetrics({ covered: visibleNow ?? 0, screen: measured ? height : 0 })
     }, [id, visible, measured, height, visibleNow])
     useEffect(
         () => () => {
@@ -196,6 +198,7 @@ export function Sheet({
             publisher = null
             document.documentElement.style.setProperty("--sheet-h", "0px")
             document.documentElement.style.removeProperty("--app-h")
+            resetSheetMetrics()
         },
         [id],
     )
