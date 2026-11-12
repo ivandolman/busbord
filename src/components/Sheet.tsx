@@ -2,14 +2,19 @@
 
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 
-/** How far the sheet is open on a phone. On a wide screen it is a side panel and always open. */
-export type SheetSnap = "peek" | "half" | "full";
+/**
+ * How far the sheet is open on a phone: "min" is a strip at the bottom (almost the whole map),
+ * then "peek", "half" and "full". On a wide screen it is a side panel and always open.
+ */
+export type SheetSnap = "min" | "peek" | "half" | "full";
 
 /** Part of the screen height each snap shows ("full": at most, see sheetHeight). */
-const VISIBLE: Record<SheetSnap, number> = { peek: 0.46, half: 0.72, full: 0.94 };
+const VISIBLE: Record<Exclude<SheetSnap, "min">, number> = { peek: 0.46, half: 0.72, full: 0.94 };
+/** What the lowest snap shows above the home indicator: the handle and the first line of the panel. */
+const MIN_VISIBLE_PX = 76;
 /** Room kept above the fully open sheet, below the status bar or notch. */
 const FULL_GAP_PX = 8;
-const ORDER: SheetSnap[] = ["peek", "half", "full"];
+const ORDER: SheetSnap[] = ["min", "peek", "half", "full"];
 /** A drag shorter than this is a tap on the handle. */
 const TAP_PIXELS = 6;
 const PHONE_QUERY = "(max-width: 1023px)";
@@ -50,7 +55,7 @@ export function Sheet({
 }) {
   const phone = usePhone();
   /** Height of the area fixed elements are laid out in, and the notch/status bar at its top. */
-  const [viewport, setViewport] = useState({ height: 0, safeTop: 0 });
+  const [viewport, setViewport] = useState({ height: 0, safeTop: 0, safeBottom: 0 });
   const probe = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
   const start = useRef<{ y: number; offset: number } | null>(null);
@@ -61,8 +66,14 @@ export function Sheet({
   useEffect(() => {
     const element = probe.current;
     if (!element) return;
-    const sync = () =>
-      setViewport({ height: element.clientHeight, safeTop: parseFloat(getComputedStyle(element).paddingTop) || 0 });
+    const sync = () => {
+      const style = getComputedStyle(element);
+      setViewport({
+        height: element.clientHeight,
+        safeTop: parseFloat(style.paddingTop) || 0,
+        safeBottom: parseFloat(style.paddingBottom) || 0,
+      });
+    };
     sync();
     const observer = new ResizeObserver(sync);
     observer.observe(element);
@@ -76,7 +87,10 @@ export function Sheet({
   const { height } = viewport;
   /** The fully open sheet stops below the notch or status bar. */
   const sheetHeight = height - Math.max(height * (1 - VISIBLE.full), viewport.safeTop + FULL_GAP_PX);
-  const visiblePx = (which: SheetSnap) => Math.min(sheetHeight, height * (which === "peek" ? peek : VISIBLE[which]));
+  const visiblePx = (which: SheetSnap) =>
+    which === "min"
+      ? MIN_VISIBLE_PX + viewport.safeBottom
+      : Math.min(sheetHeight, height * (which === "peek" ? peek : VISIBLE[which]));
   const offsetOf = (which: SheetSnap) => sheetHeight - visiblePx(which);
   const offset = drag ?? offsetOf(snap);
   const shown = sheetHeight - offset;
@@ -108,7 +122,7 @@ export function Sheet({
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!start.current) return;
     const next = start.current.offset + event.clientY - start.current.y;
-    setDrag(Math.max(0, Math.min(sheetHeight - height * 0.12, next)));
+    setDrag(Math.max(0, Math.min(offsetOf("min"), next)));
   };
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const from = start.current;
@@ -130,7 +144,7 @@ export function Sheet({
 
   return (
     <>
-    <div ref={probe} aria-hidden="true" className="pointer-events-none invisible fixed inset-0 -z-10 pt-[env(safe-area-inset-top)]" />
+    <div ref={probe} aria-hidden="true" className="pointer-events-none invisible fixed inset-0 -z-10 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]" />
     <section
       aria-label={label}
       style={measured ? { height: sheetHeight, transform: `translateY(${offset}px)` } : undefined}
@@ -141,7 +155,7 @@ export function Sheet({
       <div
         role="button"
         tabIndex={0}
-        aria-label={snap === "full" ? "Sheet inklappen" : "Sheet verder openen"}
+        aria-label={snap === "full" ? "Sheet inklappen" : snap === "min" ? "Sheet openen" : "Sheet verder openen"}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -152,7 +166,7 @@ export function Sheet({
             onSnapChange(snap === "full" ? "peek" : "full");
           }
         }}
-        className="flex shrink-0 cursor-grab touch-none justify-center pt-2 pb-1 lg:hidden"
+        className="flex shrink-0 cursor-grab touch-none justify-center pt-2.5 pb-2 lg:hidden"
       >
         <span className="h-[5px] w-10 rounded-[3px] bg-rand" />
       </div>

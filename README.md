@@ -104,7 +104,7 @@ docker run -d -p 3000:3000 -v bestemmingsbord-data:/app/data \
 ## Layout
 
 The map fills the screen. On a phone the board sits in a bottom sheet over it (drag or tap the
-handle: closed shows "Pak deze", half the line list, full everything) under a search bar
+handle: lowest a strip at the bottom so almost the whole map shows, closed "Pak deze", half the line list, full everything) under a search bar
 ("Kleinesingel → CS Jaarbeurszijde", tap to change, arrows to swap). On a wide screen the
 same content is a side panel left of the map. The sheet shows one panel at a time: the board,
 "Van en naar" (stop search, my location, choose on the map, saved routes), "Kaart &
