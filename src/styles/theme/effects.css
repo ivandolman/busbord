@@ -1,0 +1,15 @@
+/* Motion tokens: one curve for everything that slides, close to how iOS sheets settle */
+
+@theme {
+    --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+
+    /* "backwards", not "both": a transform left on the wrapper would trap fixed elements in it. */
+    --animate-sheet-content-in: sheet-content-in 0.24s var(--ease-sheet) backwards;
+
+    @keyframes sheet-content-in {
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+    }
+}

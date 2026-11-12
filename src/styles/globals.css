@@ -3,6 +3,7 @@
 @import "tailwindcss";
 @import "./theme/colors.css";
 @import "./theme/typography.css";
+@import "./theme/effects.css";
 @import "./map.css";
 
 /* Phone layout: the search bar covers the top of the map (see fitPadding in NetworkMap). */

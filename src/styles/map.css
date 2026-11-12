@@ -64,7 +64,12 @@
     /* Attribution and other bottom controls stay above the bottom sheet. */
     .leaflet-bottom {
         bottom: min(var(--sheet-h), calc(var(--app-h, 100dvh) * 0.55));
-        transition: bottom 0.2s;
+        transition: bottom 0.42s var(--ease-sheet);
+    }
+}
+@media (max-width: 1023px) and (prefers-reduced-motion: reduce) {
+    .leaflet-bottom {
+        transition: none;
     }
 }
 
