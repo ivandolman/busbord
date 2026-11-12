@@ -3,7 +3,7 @@
 Canonical coding conventions for Next.js projects. Claude MUST follow this document when
 creating or modifying files in this project.
 
-**Version:** 1.1 — 2026-09-11
+**Version:** 1.2 — 2026-11-12
 
 ---
 
@@ -438,7 +438,12 @@ Consequences Claude must honour while writing code:
 - Body (optional, blank line first) explains *why*, wrapped at 72 columns. Footer carries
   `BREAKING CHANGE:` and issue refs.
 - One logical change per commit. Never mix a refactor with a feature, or formatting with logic.
-- Commit or push only when the user asks.
+- **Commit per step.** In work with several steps, Claude commits each finished step on its own,
+  without asking, once typecheck, lint and tests pass. Never leave a multi-step task as one big
+  uncommitted change.
+- **Moves and renames get their own commit**, before any content change to those files, so git
+  keeps file history and blame intact.
+- **Never push without an explicit go**, every time. Pushing `main` deploys.
 
 Branches are the user's call. Claude never creates, switches or deletes a branch on its own, and
 never asks to; work happens on whatever branch is currently checked out, `main` included. When the
@@ -467,5 +472,7 @@ Before reporting a task complete, verify:
 
 ## 16. Changelog
 
+- **1.2 — 2026-11-12** — §14: Claude commits per finished step without asking, moves/renames in
+  their own commit first, never pushes without an explicit go.
 - **1.1 — 2026-09-11** — §14: Claude creates no branches; branching is the user's decision.
 - **1.0 — 2026-09-08** — Initial version.
