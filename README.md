@@ -181,7 +181,7 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    are merged into shared corridors: points within 25 m join, so both carriageways of a road
    and every line along it become one centre line (`src/features/network/corridors.ts`, built
    once per database, ~1.5 s). Without a search or selection each road is one calm stroke per
-   mode (bus grey, tram red, night bus dashed), as wide as the road is busy; the stops' badges
+   mode in the colour of its busiest line (night buses dashed), as wide as the road is busy; the stops' badges
    say which lines run there. A searched or reachable line is drawn in its own colour, side by
    side with others in focus on the same road (`src/app/_components/network-map/bundles.ts`).
    The map only shows lines

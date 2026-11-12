@@ -1,4 +1,4 @@
-// Draws the network's corridors: one calm stroke per mode, or each line in its colour when in focus
+// Draws the network's corridors: one stroke per mode, or each line on its own when in focus
 
 import L from "leaflet"
 
@@ -57,17 +57,11 @@ function kindOf(line: NetworkLine): Kind {
 }
 
 /** The map colours from the theme (see colors.css); the canvas cannot read CSS variables. */
-function themeColors(): Record<Kind | "edge", string> {
+function themeColors(): { night: string; edge: string } {
     const style = getComputedStyle(document.documentElement)
     const read = (name: string, fallback: string) =>
         style.getPropertyValue(`--color-map-${name}`).trim() || fallback
-    return {
-        rail: read("rail", "#d6453d"),
-        bus: read("bus", "#7c8594"),
-        night: read("night", "#a9b0bb"),
-        ferry: read("ferry", "#2f86c8"),
-        edge: read("edge", "#ffffff"),
-    }
+    return { night: read("night", "#a9b0bb"), edge: read("edge", "#ffffff") }
 }
 
 function level(zoom: number): number {
@@ -102,7 +96,7 @@ function project(map: L.Map, corridor: Corridor, zoom: number): ScreenPoint[] {
 function strokeGroups(
     lines: NetworkLine[],
     focus: boolean,
-    colors: Record<Kind | "edge", string>,
+    colors: { night: string; edge: string },
 ): StrokeGroup[] {
     if (focus) {
         return lines.map((line) => ({
@@ -116,7 +110,11 @@ function strokeGroups(
         .filter(({ ofKind }) => ofKind.length > 0)
         .map(({ kind, ofKind }) => ({
             lines: ofKind,
-            color: colors[kind],
+            // The busiest line's own colour; night lines are black in the feed, lost on a dark map.
+            color:
+                kind === "night"
+                    ? colors.night
+                    : lineColor(ofKind.reduce((a, b) => (b.trips > a.trips ? b : a))),
             trips: ofKind.reduce((sum, line) => sum + line.trips, 0),
             night: kind === "night",
         }))
@@ -125,8 +123,8 @@ function strokeGroups(
 // --- SERVICE ---
 
 /**
- * Draws every corridor into `group`. Without a focus (`visible` null) each mode is one neutral
- * stroke, as wide as the road is busy; the stops show which lines run there. With a focus, only
+ * Draws every corridor into `group`. Without a focus (`visible` null) each mode is one stroke in
+ * the colour of its busiest line, as wide as the road is busy; the stops show which lines run there. With a focus, only
  * those lines, each in its own colour, side by side where they share a road. Edges go in first,
  * so each stroke's edge shows between it and its neighbour.
  */
@@ -163,7 +161,7 @@ export function drawStripes(
                 interactive: false,
                 lineJoin: "round",
             })
-            // Night buses dashed: they share the bus colour's calm, but not its timetable.
+            // Night buses dashed: they run along the same roads, but not at the same hours.
             const layer = L.polyline([], {
                 color,
                 opacity: 1,

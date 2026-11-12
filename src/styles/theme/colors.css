@@ -17,11 +17,8 @@
     --color-warning-bg: #fff4e0;
     --color-warning-on-dark: #ffc66b;
     --color-map-base: #ecedef;
-    /* Network lines outside a search or selection: one per mode, with an edge (see bundles.ts). */
-    --color-map-bus: #7c8594;
-    --color-map-rail: #d6453d;
+    /* Night lines and the edge around every map line (see bundles.ts). */
     --color-map-night: #a9b0bb;
-    --color-map-ferry: #2f86c8;
     --color-map-edge: #ffffff;
     --color-warning-border: #f0c36d;
     --color-error: #c9372c;
@@ -55,10 +52,7 @@
         --color-warning-bg: #33260f;
         --color-warning-on-dark: #ffc66b;
         --color-map-base: #1b1f25;
-        --color-map-bus: #aeb6c2;
-        --color-map-rail: #f0645a;
         --color-map-night: #6c7584;
-        --color-map-ferry: #5aa9e6;
         --color-map-edge: #0b0d10;
         --color-warning-border: #6b4f1d;
         --color-error: #ff6b61;
@@ -82,10 +76,7 @@
     --color-warning-bg: #33260f;
     --color-warning-on-dark: #ffc66b;
     --color-map-base: #1b1f25;
-    --color-map-bus: #aeb6c2;
-    --color-map-rail: #f0645a;
     --color-map-night: #6c7584;
-    --color-map-ferry: #5aa9e6;
     --color-map-edge: #0b0d10;
     --color-warning-border: #6b4f1d;
     --color-error: #ff6b61;
