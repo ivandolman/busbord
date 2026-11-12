@@ -1,4 +1,6 @@
 import type { MetadataRoute } from "next";
+import { cookies } from "next/headers";
+import { authMode, SESSION_COOKIE, verifySessionToken } from "@/lib/auth";
 import { scheduledRoute } from "@/lib/saved-routes";
 import { getUserStore } from "@/lib/user-data";
 
@@ -7,7 +9,10 @@ export const dynamic = "force-dynamic";
 /** Home-screen shortcuts (long press on the app icon): the saved routes, regular trips first. */
 const MAX_SHORTCUTS = 4;
 
-function shortcuts(): MetadataRoute.Manifest["shortcuts"] {
+async function shortcuts(): Promise<MetadataRoute.Manifest["shortcuts"]> {
+  // The manifest is public (browsers may fetch it without cookies); route names are not.
+  if (authMode() === "misconfigured") return [];
+  if (authMode() === "on" && verifySessionToken((await cookies()).get(SESSION_COOKIE)?.value) === null) return [];
   try {
     const routes = getUserStore().routes();
     const now = new Date();
@@ -31,7 +36,7 @@ function shortcuts(): MetadataRoute.Manifest["shortcuts"] {
 }
 
 /** Lets the board be added to a phone's home screen and open like an app. */
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
   return {
     name: "Bestemmingsbord",
     short_name: "Bestemming",
@@ -41,6 +46,6 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#f5f5f4",
     theme_color: "#1c1917",
     icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" }],
-    shortcuts: shortcuts(),
+    shortcuts: await shortcuts(),
   };
 }

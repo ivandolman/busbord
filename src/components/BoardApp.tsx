@@ -14,6 +14,7 @@ import { SavedRouteList, SaveRouteButton } from "./SavedRoutes";
 import { useSavedRoutes } from "./useSavedRoutes";
 import { LeaveAlertSwitch, useLeaveAlert } from "./LeaveAlert";
 import { SettingsPanel } from "./SettingsPanel";
+import { LogoutRow } from "./SessionGuard";
 import { Sheet, type SheetSnap } from "./Sheet";
 import { useSettings, walkParams } from "./useSettings";
 import { StopPicker, type StopOption } from "./StopPicker";
@@ -119,7 +120,8 @@ function SearchBar({
   );
 }
 
-export function BoardApp() {
+/** `loginEnabled`: the app sits behind a login (src/lib/auth.ts), so offer "Uitloggen". */
+export function BoardApp({ loginEnabled = false }: { loginEnabled?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -454,6 +456,7 @@ export function BoardApp() {
             <Icon name="chevR" size={20} className="text-tekst" />
           </button>
         }
+        account={loginEnabled ? <LogoutRow /> : undefined}
         onClose={() => open("board", "peek")}
       />
     ) : (

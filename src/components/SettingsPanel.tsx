@@ -79,6 +79,7 @@ export function SettingsPanel({
   onWalkChange,
   notifications,
   savedRoutes,
+  account,
   onClose,
 }: {
   walk: boolean;
@@ -87,6 +88,8 @@ export function SettingsPanel({
   notifications?: ReactNode;
   /** Slot for the "Mijn routes" row. */
   savedRoutes?: ReactNode;
+  /** Slot for "Uitloggen" when the app has a login. */
+  account?: ReactNode;
   onClose: () => void;
 }) {
   const { settings, update } = useSettings();
@@ -145,6 +148,7 @@ export function SettingsPanel({
         </Row>
         {notifications}
         {savedRoutes}
+        {account}
       </div>
     </div>
   );

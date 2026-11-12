@@ -1,7 +1,7 @@
 // Bestemmingsbord service worker: keeps the app and the last answers available offline.
 // Network first for pages and data (fresh when online), the cache when the network fails;
 // built assets (hashed names, never change) straight from the cache.
-const VERSION = "v1";
+const VERSION = "v2";
 const PAGES = `pages-${VERSION}`;
 const ASSETS = `assets-${VERSION}`;
 const DATA = `data-${VERSION}`;
@@ -10,7 +10,14 @@ const DATA = `data-${VERSION}`;
 const OFFLINE_API = /^\/api\/(board|network|place|stops|departures|next-departures|reachable|walk-area|walk-route|settings|routes)(\?|$)/;
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(PAGES).then((cache) => cache.add("/")).then(() => self.skipWaiting()));
+  // Not cache.add: when the session has ended "/" redirects to the login page, which must not
+  // be kept as the start page.
+  event.waitUntil(
+    fetch("/")
+      .then((response) => (cacheable(response) ? caches.open(PAGES).then((cache) => cache.put("/", response)) : undefined))
+      .catch(() => undefined)
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (event) => {
@@ -21,6 +28,11 @@ self.addEventListener("activate", (event) => {
       .then(() => self.clients.claim()),
   );
 });
+
+/** Only real answers: a redirect (to the login page) or a 401 is never kept. */
+function cacheable(response) {
+  return response.ok && !response.redirected;
+}
 
 /** The cached answer, marked so the page can say it is showing older data. */
 async function fromCache(cacheName, request, matchOptions) {
@@ -34,7 +46,7 @@ async function fromCache(cacheName, request, matchOptions) {
 async function networkFirst(cacheName, request, matchOptions) {
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (cacheable(response)) {
       const cache = await caches.open(cacheName);
       await cache.put(request, response.clone());
     }
@@ -51,6 +63,7 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname === "/login") return;
 
   if (url.pathname.startsWith("/_next/static/")) {
     event.respondWith(

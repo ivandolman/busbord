@@ -15,6 +15,8 @@ pnpm gtfs:demo     # builds data/gtfs.sqlite from an invented timetable
 pnpm dev           # http://localhost:3000
 ```
 
+In development the app is open unless `AUTH_PASSWORD` is set; see "Login" below.
+
 Try "Utrecht CS" to "Heidelberglaan" (three lines, the bus gets overtaken by trams) or to
 "De Bilt" (lines 73 and 77). The demo timetable is invented: real stop names, made-up routes,
 platforms and times. Set `GTFS_RT_ENABLED=false` in `.env` while using it, since the real
@@ -169,13 +171,15 @@ src/app/api/        /api/stops?q=   /api/board?from=&to=&walk=&tie=&trains=
                     /api/walk-route?from=@lat,lon&to=@lat,lon
                     (walking settings travel as &tie=&maxWalk=, else the stored ones)
                     /api/routes (GET, POST, DELETE ?id=)   /api/settings (GET, PUT)
+                    /api/login (POST form)   /api/logout (POST)
+src/proxy.ts        login check on every request (src/lib/auth.ts)
 src/components/     StopPicker, BoardView, BoardApp, NetworkMap (Leaflet)
 tests/              unit tests + an end-to-end test on the demo feed
 ```
 
 ## What is and is not verified
 
-Verified: `pnpm test` (54 tests), `pnpm typecheck`, `pnpm build`, and a headless-browser run
+Verified: `pnpm test` (61 tests), `pnpm typecheck`, `pnpm build`, and a headless-browser run
 of the page, all against the demo feed.
 
 Not verified at first, because the environment this was built in could not reach gtfs.ovapi.nl:
@@ -197,12 +201,24 @@ Not verified at first, because the environment this was built in could not reach
 ## Security and licence notes
 
 - All SQL is parameterised; request input is validated and never interpolated into SQL.
-- No cookies and no accounts. The selection lives in the URL. Saved routes are stored on the
-  server and may contain a home address as a map point; anyone who can reach the app can read,
-  change and delete them. Keep the app on your own machine or network, or put authentication
-  in front of it before exposing it.
-- There is **no rate limiting**. Before exposing this publicly, add it at the reverse proxy,
-  because `/api/stops` and `/api/board` are unauthenticated and hit the database.
+- **Login.** With `AUTH_PASSWORD` set, every page and API call needs a login (`src/proxy.ts`,
+  `src/lib/auth.ts`); only `/login`, its form handler and static files are public. There is one
+  shared password and no accounts, matching the one list of saved routes. A login sets an
+  HttpOnly, SameSite=Lax session cookie (`Secure` over HTTPS, also behind a proxy that sends
+  `X-Forwarded-Proto`), signed with HMAC-SHA256 (`AUTH_SECRET`, or the password when that is
+  not set), valid 30 days and renewed while in use. Unauthenticated API calls get 401; pages
+  redirect to `/login` and come back afterwards (only to a path on this site). "Uitloggen" in
+  "Kaart & instellingen" ends the session on that device and clears its offline copies.
+  Production builds without `AUTH_PASSWORD` answer 503, unless `AUTH_DISABLED=true` (for a
+  reverse proxy that authenticates already). The web manifest stays public so phones can
+  install the app, but lists saved routes as shortcuts only with a valid session.
+- Failed logins are limited in memory (5 per client per 15 minutes, 50 in total). The client
+  is taken from `X-Forwarded-For`, which only a reverse proxy should set, so limit
+  `/api/login` there as well. Other endpoints have **no rate limiting**; add it at the reverse
+  proxy before exposing the app publicly.
+- Saved routes may contain a home address as a map point; everyone with the password can read,
+  change and delete them. Serve the app over HTTPS when it is reachable from outside your
+  network, or the password and cookie travel in the clear.
 - The map loads its background tiles in the visitor's browser from service.pdok.nl (the
   Dutch government's open base map; Netherlands only) or, when chosen, tile.openstreetmap.org.
   That is fine for light use; read the OSM tile usage policy (or switch to your own tile
