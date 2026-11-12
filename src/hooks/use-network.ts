@@ -31,7 +31,12 @@ const NetworkSchema = z.object({
             name: z.string(),
             mode: ModeSchema,
             color: z.string().nullable(),
-            paths: z.custom<LatLon[][]>((value) => Array.isArray(value)),
+        }),
+    ),
+    corridors: z.array(
+        z.object({
+            path: z.custom<LatLon[]>((value) => Array.isArray(value)),
+            lines: z.array(z.number()),
         }),
     ),
     stops: z.array(

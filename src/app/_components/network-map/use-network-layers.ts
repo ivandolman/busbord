@@ -9,6 +9,7 @@ import L from "leaflet"
 import type { StopOption } from "@/app/_components/stop-picker"
 import type { Network, NetworkLine, NetworkStop } from "@/features/network/network.service"
 
+import { drawStripes, placeStripes, type Stripe } from "./bundles"
 import { fitPadding } from "./fit-padding"
 import type { LineFocus } from "./line-focus"
 import { linesNear } from "./lines-near"
@@ -69,6 +70,11 @@ export function useNetworkLayers({
 }: UseNetworkLayersOptions): RefObject<NetworkLayers> {
     const layersRef = useRef<NetworkLayers>({ lines: [], segments: [], stops: [] })
     const groupsRef = useRef<LayerGroups | null>(null)
+    const stripesRef = useRef<{ stripes: Stripe[]; emphasized: boolean; key: string }>({
+        stripes: [],
+        emphasized: false,
+        key: "",
+    })
 
     // Layers are built once per network; their click handlers read the latest props.
     const currentPickTarget = useEffectEvent(() => pickTarget)
@@ -87,6 +93,8 @@ export function useNetworkLayers({
         }
         groupsRef.current = groups
         const onZoom = () => {
+            const { stripes, emphasized } = stripesRef.current
+            placeStripes(map, stripes, emphasized)
             for (const circle of layersRef.current.stops) {
                 circle.layer.setRadius(stopRadius(circle.look, map.getZoom()))
             }
@@ -106,19 +114,14 @@ export function useNetworkLayers({
         groups.lines.clearLayers()
         groups.stops.clearLayers()
 
-        const lines = network.lines.flatMap((line) =>
-            line.paths.map((path) => {
-                const layer = L.polyline(path, { weight: 3, color: lineColor(line), opacity: 0.8 })
-                layer.on("click", (event: L.LeafletMouseEvent) =>
-                    openLinesPopup(map, event, line, layersRef.current, (chosen) => {
-                        showLine(chosen.line)
-                        map.closePopup()
-                    }),
-                )
-                layer.addTo(groups.lines)
-                return { line, layer }
+        const stripes = drawStripes(map, network, groups.lines, null, false, (line, event) =>
+            openLinesPopup(map, event, line, layersRef.current, (chosen) => {
+                showLine(chosen.line)
+                map.closePopup()
             }),
         )
+        stripesRef.current = { stripes, emphasized: false, key: "all" }
+        const lines = stripes.map(({ line, layer }) => ({ line, layer }))
 
         const stops = network.stops.map((stop) => {
             const layer = L.circleMarker([stop.lat, stop.lon], {
@@ -200,18 +203,28 @@ export function useNetworkLayers({
         }
 
         // Lines outside the focus are taken off the map, not faded: they cannot take you there.
-        for (const { line, layer } of layersRef.current.lines) {
-            const focused = segments === null && (focusLines === null || focusLines.has(line.id))
-            if (!focused) {
-                groups.lines.removeLayer(layer)
-                continue
+        // The rest close up, so a bundle shows only the lines in focus.
+        const visible = segments ? new Set<number>() : focusLines === null ? null : focus.indexes
+        const key = visible === null ? "all" : [...visible].sort((a, b) => a - b).join(",")
+        if (key !== stripesRef.current.key) {
+            const emphasized = focusLines !== null
+            const stripes = drawStripes(
+                map,
+                network,
+                groups.lines,
+                visible,
+                emphasized,
+                (line, event) =>
+                    openLinesPopup(map, event, line, layersRef.current, (chosen) => {
+                        showLine(chosen.line)
+                        map.closePopup()
+                    }),
+            )
+            stripesRef.current = { stripes, emphasized, key }
+            layersRef.current = {
+                ...layersRef.current,
+                lines: stripes.map(({ line, layer }) => ({ line, layer })),
             }
-            layer.setStyle({
-                color: lineColor(line),
-                weight: focusLines === null ? 3 : 5,
-                opacity: focusLines === null ? 0.8 : 1,
-            })
-            if (!groups.lines.hasLayer(layer)) groups.lines.addLayer(layer)
         }
 
         const stops = layersRef.current.stops.map((circle) => {
@@ -233,7 +246,9 @@ export function useNetworkLayers({
         layersRef.current = { ...layersRef.current, segments: drawnSegments, stops }
 
         if (query && matchingLines.length > 0) {
-            const points = matchingLines.flatMap((line) => line.paths.flat())
+            const points = network.corridors
+                .filter((corridor) => corridor.lines.some((index) => focus.indexes.has(index)))
+                .flatMap((corridor) => corridor.path)
             if (points.length > 0) map.fitBounds(L.latLngBounds(points), fitPadding(20))
         }
     }, [map, network, reachable, query, matchingLines, focus])

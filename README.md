@@ -177,7 +177,11 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    so the route picks the street the bus really takes (`src/lib/roads/`). A hop falls back to
    the feed's shape when a stop is not near any road or routing gives an implausible detour.
    Without `roads.bin` the feed's shapes are used as they are. A database imported before that table existed still works: the patterns
-   are then computed on first use (~3 s) and drawn stop to stop. The map only shows lines
+   are then computed on first use (~3 s) and drawn stop to stop. For drawing, all patterns
+   are merged into shared corridors: points within 25 m join, so both carriageways of a road
+   and every line along it become one centre line, and lines on the same road lie side by
+   side at a fixed pixel distance, each with a dark edge (`src/features/network/corridors.ts`,
+   built once per database, ~1.5 s). The map only shows lines
    that are useful for the selection (today, without changing): with only an origin the
    lines leaving it, with only a destination the lines arriving there, with both only the
    stretch of each line you ride, from where you board to where you get off (picked per trip

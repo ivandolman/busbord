@@ -16,6 +16,7 @@ import { config } from "@/lib/config"
 import { getDatabase } from "@/lib/db"
 import { distanceMeters } from "@/lib/geo"
 
+import { buildCorridors, type Corridor } from "./corridors"
 import type { ReachableQuery } from "./network.schema"
 import { loadPatterns } from "./patterns"
 import { getReachable } from "./reachable"
@@ -39,7 +40,6 @@ export interface NetworkLine {
     mode: Mode
     /** "#rrggbb" from the feed, or null to colour by mode. */
     color: string | null
-    paths: LatLon[][]
 }
 
 /**
@@ -61,6 +61,8 @@ export interface Network {
     /** True when paths follow the road (shapes.txt); false when they connect stops in a straight line. */
     shaped: boolean
     lines: NetworkLine[]
+    /** Every road a line runs along, once, with the lines on it; see corridors.ts. */
+    corridors: Corridor[]
     stops: NetworkStop[]
 }
 
@@ -111,11 +113,11 @@ export function buildNetwork(db: DatabaseSync): Network {
             name: route.name,
             mode,
             color: null,
-            paths: [],
         })
     }
 
     const linesOfArea = new Map<string, Set<number>>()
+    const pathsOfLine = new Map<number, LatLon[][]>()
     let shaped = false
     for (const pattern of loadPatterns(db)) {
         const index = lineIndex.get(pattern.routeId)
@@ -132,16 +134,13 @@ export function buildNetwork(db: DatabaseSync): Network {
             set.add(index)
             linesOfArea.set(stop.areaId, set)
         }
+        const paths = pathsOfLine.get(index) ?? []
+        pathsOfLine.set(index, paths)
         if (pattern.path && pattern.path.length >= 2) {
             shaped = true
-            line.paths.push(pattern.path)
+            paths.push(pattern.path)
         } else if (coordinates.length >= 2) {
-            line.paths.push(
-                coordinates.map(([lat, lon]) => [
-                    Math.round(lat * 1e5) / 1e5,
-                    Math.round(lon * 1e5) / 1e5,
-                ]),
-            )
+            paths.push(coordinates)
         }
     }
 
@@ -189,8 +188,20 @@ export function buildNetwork(db: DatabaseSync): Network {
         }
     })
 
+    // Trams first, then by line number: the order lines lie side by side along a shared road.
+    const drawingOrder = [...pathsOfLine.keys()].sort((a, b) => {
+        const lineA = lines[a] as NetworkLine
+        const lineB = lines[b] as NetworkLine
+        const railA = lineA.mode === "bus" ? 1 : 0
+        const railB = lineB.mode === "bus" ? 1 : 0
+        return railA - railB || lineA.line.localeCompare(lineB.line, "nl", { numeric: true })
+    })
+    const corridors = buildCorridors(
+        drawingOrder.map((index) => ({ index, paths: pathsOfLine.get(index) ?? [] })),
+    )
+
     // Lines stay in place even without a path: stops refer to them by index.
-    return { shaped, lines, stops: networkStops }
+    return { shaped, lines, corridors, stops: networkStops }
 }
 
 export const createNetworkService = ({
