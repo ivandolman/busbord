@@ -1,44 +1,29 @@
-import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, renameSync, rmSync, statSync, utimesSync } from "node:fs";
+import { closeSync, existsSync, mkdirSync, openSync, rmSync, statSync, utimesSync } from "node:fs";
 import { dirname } from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import { parseArgs } from "node:util";
 import { config, parseBoundingBox } from "../src/lib/config";
+import { downloadFeed, readFeedState, writeFeedState } from "../src/lib/gtfs/download";
 import { importGtfs } from "../src/lib/gtfs/importer";
 import { readRoadNetwork } from "../src/lib/roads/network";
 import { RoadRouter } from "../src/lib/roads/router";
+import { SCHEMA_VERSION } from "../src/lib/gtfs/schema";
 
 const { values } = parseArgs({
   options: {
     file: { type: "string" },
     "keep-zip": { type: "boolean", default: false },
+    force: { type: "boolean", default: false },
     help: { type: "boolean", default: false },
   },
 });
 
 if (values.help) {
-  console.log(`Usage: pnpm gtfs:import [--file <gtfs.zip>] [--keep-zip]
+  console.log(`Usage: pnpm gtfs:import [--file <gtfs.zip>] [--keep-zip] [--force]
 
 Downloads the GTFS feed from GTFS_URL (or reads --file) and builds ${config.dbPath},
-keeping only stops inside GTFS_BBOX.`);
+keeping only stops inside GTFS_BBOX. Skips the download and import when the feed, the region
+and the road network are unchanged since the last import; --force imports anyway.`);
   process.exit(0);
-}
-
-async function download(url: string, target: string): Promise<void> {
-  if (new URL(url).protocol !== "https:") throw new Error("GTFS_URL must use https");
-  mkdirSync(dirname(target), { recursive: true });
-  const partial = `${target}.part`;
-  console.log(`Downloading ${url} …`);
-  const response = await fetch(url, { headers: { "User-Agent": config.userAgent } });
-  if (!response.ok || !response.body) throw new Error(`Download failed: HTTP ${response.status}`);
-  try {
-    await pipeline(Readable.fromWeb(response.body as import("node:stream/web").ReadableStream), createWriteStream(partial));
-    renameSync(partial, target);
-  } catch (error) {
-    rmSync(partial, { force: true });
-    throw error;
-  }
-  console.log(`  ${(statSync(target).size / 1e6).toFixed(0)} MB`);
 }
 
 /**
@@ -73,7 +58,26 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => pr
 
 const downloaded = values.file === undefined;
 const zipPath = values.file ?? "data/gtfs-nl.zip";
-if (downloaded) await download(config.gtfsUrl, zipPath);
+const statePath = `${config.dbPath}.feed.json`;
+// Everything besides the feed that shapes the database: an unchanged feed alone is no reason to skip.
+const inputs = JSON.stringify({
+  schema: SCHEMA_VERSION,
+  bbox: process.env.GTFS_BBOX ?? "",
+  roads: existsSync(config.roadsPath) ? statSync(config.roadsPath).mtimeMs : null,
+});
+let etag: string | null = null;
+if (downloaded) {
+  const previous = values.force || !existsSync(config.dbPath) ? null : readFeedState(statePath);
+  const result = await downloadFeed(config.gtfsUrl, zipPath, {
+    userAgent: config.userAgent,
+    etag: previous?.inputs === inputs ? previous.etag : null,
+  });
+  if (result.status === "unchanged") {
+    console.log("Nothing to import; the current timetable stays.");
+    process.exit(0);
+  }
+  etag = result.etag;
+}
 
 const started = Date.now();
 let roads: RoadRouter | undefined;
@@ -91,6 +95,8 @@ const summary = await importGtfs({
   source: downloaded ? config.gtfsUrl : zipPath,
   log: console.log,
 });
+if (etag) writeFeedState(statePath, { etag, inputs });
+else rmSync(statePath, { force: true });
 console.log(`Done in ${((Date.now() - started) / 1000).toFixed(0)} s:`, summary);
 
 if (downloaded && !values["keep-zip"]) rmSync(zipPath, { force: true });
