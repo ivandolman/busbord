@@ -2,12 +2,13 @@
 
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useEffectEvent, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 
 import "leaflet/dist/leaflet.css"
 
 import type { StopOption } from "@/app/_components/stop-picker"
+import type { SheetSnap } from "@/components/ui/sheet"
 import type { StopBoard } from "@/features/board/board.types"
 import type { Network, NetworkLine } from "@/features/network/network.service"
 import { useNetwork } from "@/hooks/use-network"
@@ -43,6 +44,8 @@ interface NetworkMapProps {
     pickTarget?: PlaceKey | null
     /** Phone only: show the line search field (on a wide screen it is always there). */
     lineSearchOpen?: boolean
+    /** Phone only: a stop's sheet opened or closed, so the board's sheet can make way. */
+    onStopSheetChange?: (open: boolean) => void
 }
 
 /** What the legend line depends on. */
@@ -66,6 +69,7 @@ export default function NetworkMap({
     onPick,
     pickTarget = null,
     lineSearchOpen = false,
+    onStopSheetChange,
 }: NetworkMapProps) {
     const { settings, loaded: settingsLoaded } = useSettings()
     // Walking settings as query parameters; a change refetches everything that depends on them.
@@ -74,6 +78,7 @@ export default function NetworkMap({
     const [lineQuery, setLineQuery] = useState("")
     /** The stop whose card is open: a popup next to it, or the bottom sheet on a phone. */
     const [openStop, setOpenStop] = useState<OpenStop | null>(null)
+    const sheet = useStopSheet(openStop, onStopSheetChange)
 
     const { map, containerRef } = useLeafletMap({ mapStyle: settings.mapStyle, pickTarget, onPick })
     const reachable = useReachable({ fromId, toId, walk, walkQuery })
@@ -81,6 +86,7 @@ export default function NetworkMap({
         map,
         openStop,
         onDismiss: (key) => setOpenStop((current) => (current?.key === key ? null : current)),
+        lingerKey: sheet.leaving?.key ?? null,
         fromId,
         toId,
         walk,
@@ -120,18 +126,19 @@ export default function NetworkMap({
 
     const lineSuggestions = useMemo(() => uniqueLines(network), [network])
 
-    const card = openStop ? (
+    const cardStop = openStop ?? sheet.leaving
+    const card = cardStop ? (
         <StopCard
-            name={openStop.stop.name}
-            lines={cardLines(openStop.served, stopCard.board)}
-            note={openStop.note}
+            name={cardStop.stop.name}
+            lines={cardLines(cardStop.served, stopCard.board)}
+            note={cardStop.note}
             board={stopCard.board}
             failed={stopCard.failed}
             direction={stopCard.direction}
             now={stopCard.now}
             onDirection={stopCard.setDirection}
             onPick={(key) => {
-                onPick(key, { id: openStop.stop.id, name: openStop.stop.name })
+                onPick(key, { id: cardStop.stop.id, name: cardStop.stop.name })
                 setOpenStop(null)
             }}
             onClose={() => setOpenStop(null)}
@@ -164,12 +171,55 @@ export default function NetworkMap({
             {legend && <MapLegend message={legend} picking={pickTarget !== null} />}
             {/* The stop card: in its popup on a wide screen; on a phone a sheet in <body>. */}
             {card && stopCard.popupHost && createPortal(card, stopCard.popupHost)}
-            {card && openStop?.phone && <StopSheet stopName={openStop.stop.name}>{card}</StopSheet>}
+            {card && sheet.stop && (
+                <StopSheet
+                    stopName={sheet.stop.stop.name}
+                    visible={sheet.visible}
+                    snap={sheet.snap}
+                    onSnapChange={sheet.setSnap}
+                    onClose={() => setOpenStop(null)}
+                    onHidden={sheet.onHidden}
+                >
+                    {card}
+                </StopSheet>
+            )}
         </div>
     )
 }
 
 // --- HELPERS ---
+
+/**
+ * The phone's stop sheet: how far it is open, and the closed stop it keeps showing while it
+ * slides away. A new stop opens at "peek"; another tap on the same stop keeps the height.
+ */
+function useStopSheet(openStop: OpenStop | null, onChange: ((open: boolean) => void) | undefined) {
+    const phoneStop = openStop?.phone ? openStop : null
+    const [snap, setSnap] = useState<SheetSnap>("peek")
+    const [leaving, setLeaving] = useState<OpenStop | null>(null)
+    const [previous, setPrevious] = useState<OpenStop | null>(null)
+    if (phoneStop !== previous) {
+        if (!phoneStop && previous) setLeaving(previous)
+        if (phoneStop) {
+            setLeaving(null)
+            if (phoneStop.stop.id !== previous?.stop.id) setSnap("peek")
+        }
+        setPrevious(phoneStop)
+    }
+
+    const open = phoneStop !== null
+    const notify = useEffectEvent((next: boolean) => onChange?.(next))
+    useEffect(() => notify(open), [open])
+
+    return {
+        stop: phoneStop ?? leaving,
+        leaving,
+        visible: open,
+        snap,
+        setSnap,
+        onHidden: () => setLeaving(null),
+    }
+}
 
 /** One line per line number, in line order, for the search suggestions. */
 function uniqueLines(network: Network | null): NetworkLine[] {

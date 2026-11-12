@@ -76,6 +76,8 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
     /** Set while choosing a place by tapping the map. */
     const [pickTarget, setPickTarget] = useState<PlaceKey | null>(null)
     const [lineSearchOpen, setLineSearchOpen] = useState(false)
+    /** Phone: a stop's sheet is open, so the board's sheet slides out of its way. */
+    const [stopSheetOpen, setStopSheetOpen] = useState(false)
 
     const open = (next: Panel, at: SheetSnap) => {
         setPanel(next)
@@ -185,6 +187,7 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
                 onSnapChange={setSnap}
                 peek={boardMatches || visiblePanel !== "board" ? 0.46 : 0.34}
                 label={PANEL_LABEL[visiblePanel]}
+                visible={!stopSheetOpen}
                 header={
                     <DesktopHeader
                         from={from}
@@ -208,6 +211,7 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
                     walkLegs={trip.walkLegs}
                     pickTarget={pickTarget}
                     lineSearchOpen={lineSearchOpen}
+                    onStopSheetChange={setStopSheetOpen}
                 />
                 <MapControls
                     from={from}

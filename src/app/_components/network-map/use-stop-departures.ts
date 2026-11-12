@@ -6,6 +6,7 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 
 import L from "leaflet"
 
+import { VISIBLE } from "@/components/ui/sheet"
 import type { StopBoard } from "@/features/board/board.types"
 
 import { fetchParsed } from "./fetch-parsed"
@@ -29,6 +30,8 @@ interface UseStopDeparturesOptions {
     openStop: OpenStop | null
     /** The popup of the stop with this key was closed on the map. */
     onDismiss: (key: number) => void
+    /** A closed stop whose card is still on screen (its sheet sliding away); keeps its times. */
+    lingerKey?: number | null
     fromId: string | null
     toId: string | null
     walk: boolean
@@ -52,6 +55,7 @@ export function useStopDepartures({
     map,
     openStop,
     onDismiss,
+    lingerKey = null,
     fromId,
     toId,
     walk,
@@ -78,6 +82,7 @@ export function useStopDepartures({
         let popup: L.Popup | null = null
         if (openStop.phone || !popupHost) {
             map.closePopup()
+            panAboveSheet(map, openStop.latlng)
         } else {
             popup = L.popup({
                 offset: [0, -4],
@@ -153,7 +158,8 @@ export function useStopDepartures({
         }
     }, [map, openStop, popupHost])
 
-    const current = card && openStop && card.key === openStop.key ? card : null
+    const shownKey = openStop?.key ?? lingerKey
+    const current = card && card.key === shownKey ? card : null
     const board = current?.board ?? null
     const direction = current?.direction
 
@@ -180,6 +186,21 @@ export function useStopDepartures({
 }
 
 // --- HELPERS ---
+
+/** Slides the map along with the stop's sheet, so the stop stays in sight above it. */
+function panAboveSheet(map: L.Map, latlng: L.LatLng) {
+    const style = getComputedStyle(document.documentElement)
+    const top = parseFloat(style.getPropertyValue("--map-top")) || 0
+    const screen = parseFloat(style.getPropertyValue("--app-h")) || window.innerHeight
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    map.panInside(latlng, {
+        paddingTopLeft: [48, top + 48],
+        paddingBottomRight: [48, screen * VISIBLE.peek + 48],
+        animate: !reduced,
+        duration: 0.42,
+        easeLinearity: 0.2,
+    })
+}
 
 /** The card state of the stop with `key`, fresh when the state belongs to another stop. */
 function cardFor(current: CardState | null, key: number): CardState {

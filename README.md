@@ -115,7 +115,12 @@ same content is a side panel left of the map. The sheet shows one panel at a tim
 "Van en naar" (stop search, my location, choose on the map, saved routes), "Kaart &
 instellingen" (layers button on the map) and a ride step by step ("Looproute op kaart": walk,
 board, get off, arrive, with the walks drawn on the map). A stop tapped on a phone opens in its
-own sheet instead of a popup (`src/components/Sheet.tsx`, `BoardApp.tsx`).
+own sheet instead of a popup: it slides up while the board's sheet slides away, drags between the
+same heights, and closes with the cross or by dragging it down past its lowest height
+(`src/components/ui/sheet.tsx`, `src/app/_components/board-app.tsx`,
+`src/app/_components/network-map/stop-sheet.tsx`). A quick flick moves a sheet one height
+further. Panels fade in when they change; with "reduce motion" on in the system, sheets jump
+instead of sliding.
 
 The look follows the Figma design ("Concept B – uitgewerkt"): its colour variables and text
 styles are Tailwind tokens in `src/app/globals.css` (`text-tekst`, `bg-oppervlak`, `text-body-s`,
