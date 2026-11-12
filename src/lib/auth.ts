@@ -145,6 +145,7 @@ export const globalLoginLimiter = new LoginLimiter(50);
 /**
  * 303 redirect with a relative Location. Behind a reverse proxy request.url holds the container
  * address (http://0.0.0.0:3000), so an absolute URL built from it sends the browser there.
+ * Route handlers only: in src/proxy.ts Next rejects a relative Location.
  */
 export function seeOther(path: string): NextResponse {
   return new NextResponse(null, { status: 303, headers: { Location: path } });
