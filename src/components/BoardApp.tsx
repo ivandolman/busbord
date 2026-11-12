@@ -149,6 +149,8 @@ export function BoardApp({ loginEnabled = false }: { loginEnabled?: boolean }) {
   /** Set while choosing a place by tapping the map. */
   const [pickTarget, setPickTarget] = useState<PlaceKey | null>(null);
   const [lineSearchOpen, setLineSearchOpen] = useState(false);
+  /** Phone: a stop's sheet is open, so the board's sheet slides out of its way. */
+  const [stopSheetOpen, setStopSheetOpen] = useState(false);
   const [locationError, setLocationError] = useState(false);
   const scheduleChecked = useRef(false);
   const { routes: savedRoutes, loaded: routesLoaded } = useSavedRoutes();
@@ -484,6 +486,7 @@ export function BoardApp({ loginEnabled = false }: { loginEnabled?: boolean }) {
         peek={boardMatches || panel !== "board" ? 0.46 : 0.34}
         label={panel === "search" ? "Van en naar" : panel === "settings" ? "Kaart en instellingen" : panel === "trip" ? "Rit" : "Vertrekbord"}
         header={desktopHeader}
+        visible={!stopSheetOpen}
       >
         {content}
       </Sheet>
@@ -497,6 +500,7 @@ export function BoardApp({ loginEnabled = false }: { loginEnabled?: boolean }) {
           walkLegs={walkLegs}
           pickTarget={pickTarget}
           lineSearchOpen={lineSearchOpen}
+          onStopSheet={setStopSheetOpen}
         />
         <SearchBar
           from={from}

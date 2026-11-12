@@ -180,7 +180,7 @@
   /* Attribution and other bottom controls stay above the bottom sheet. */
   .leaflet-bottom {
     bottom: min(var(--sheet-h), calc(var(--app-h, 100dvh) * 0.55));
-    transition: bottom 0.2s;
+    transition: bottom 0.42s var(--ease-sheet);
   }
 }
 
@@ -225,5 +225,32 @@
   select,
   textarea {
     font-size: max(16px, 1em);
+  }
+}
+
+/* Motion. One curve for everything that slides, close to how iOS sheets settle. */
+:root {
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
+}
+.sheet-motion {
+  transition: transform 0.42s var(--ease-sheet);
+}
+@keyframes sheet-content-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+/* "backwards", not "both": a transform left on the wrapper would trap fixed elements inside it. */
+.sheet-content-in {
+  animation: sheet-content-in 0.24s var(--ease-sheet) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-motion,
+  .leaflet-bottom {
+    transition-duration: 0.01s !important;
+  }
+  .sheet-content-in {
+    animation: none;
   }
 }

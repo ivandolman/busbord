@@ -5,6 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./Icon";
+import { Sheet, VISIBLE, type SheetSnap } from "./Sheet";
 import { defaultDirection, StopCard } from "./StopCard";
 import { delayMinutes, formatClock, formatWait, MODE_LABEL } from "@/lib/board/format";
 import type { Mode, NextDepartures, StopBoard, StopPole } from "@/lib/board/types";
@@ -27,6 +28,8 @@ interface NetworkMapProps {
   pickTarget?: PlaceKey | null;
   /** Phone only: show the line search field (on a wide screen it is always there). */
   lineSearchOpen?: boolean;
+  /** Phone only: a stop's sheet opened or closed (the board's sheet makes way for it). */
+  onStopSheet?: (open: boolean) => void;
 }
 
 /** A walk of one departure: to the stop where you get on, or from where you get off. */
@@ -286,7 +289,7 @@ function destinationMarker(): L.DivIcon {
   });
 }
 
-export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarget = null, lineSearchOpen = false }: NetworkMapProps) {
+export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarget = null, lineSearchOpen = false, onStopSheet }: NetworkMapProps) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const linesLayer = useRef<L.LayerGroup | null>(null);
@@ -330,6 +333,24 @@ export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarg
   const stopPopup = useRef<L.Popup | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   useEffect(() => setPortalTarget(document.body), []);
+  /** Phone: how far the stop's sheet is open, and the stop it shows while it slides away. */
+  const [stopSnap, setStopSnap] = useState<SheetSnap>("peek");
+  const [leavingStop, setLeavingStop] = useState<OpenStop | null>(null);
+  const phoneStop = openStop?.phone ? openStop : null;
+  const [shownPhoneStop, setShownPhoneStop] = useState<OpenStop | null>(null);
+  if (phoneStop !== shownPhoneStop) {
+    // Closing keeps the last stop on screen until its sheet is out of view.
+    if (!phoneStop && shownPhoneStop) setLeavingStop(shownPhoneStop);
+    if (phoneStop) {
+      setLeavingStop(null);
+      if (phoneStop.stop.id !== shownPhoneStop?.stop.id) setStopSnap("peek");
+    }
+    setShownPhoneStop(phoneStop);
+  }
+  const onStopSheetRef = useRef(onStopSheet);
+  onStopSheetRef.current = onStopSheet;
+  const stopSheetOpen = phoneStop !== null;
+  useEffect(() => onStopSheetRef.current?.(stopSheetOpen), [stopSheetOpen]);
   const selectionRef = useRef({ fromId, toId, walk });
   selectionRef.current = { fromId, toId, walk };
 
@@ -485,6 +506,16 @@ export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarg
     let popup: L.Popup | null = null;
     if (openStop.phone) {
       map.closePopup();
+      // Slide the map along with the sheet, so the stop stays in sight above it.
+      const style = getComputedStyle(document.documentElement);
+      const top = parseFloat(style.getPropertyValue("--map-top")) || 0;
+      const screen = parseFloat(style.getPropertyValue("--app-h")) || window.innerHeight;
+      map.panInside(openStop.latlng, {
+        paddingTopLeft: [48, top + 48],
+        paddingBottomRight: [48, screen * VISIBLE.peek + 48],
+        duration: 0.42,
+        easeLinearity: 0.2,
+      });
     } else {
       const host = document.createElement("div");
       // The card scrolls inside itself, so a busy stop never pushes the map away.
@@ -1025,24 +1056,24 @@ export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarg
     return [...unique.values()];
   }, [network]);
 
-  const stopCard = openStop ? (
-        <StopCard
-          name={openStop.stop.name}
-          lines={[...new Set([...openStop.served, ...(stopBoard?.departures.map((departure) => departure.line) ?? [])])]
-            .filter(Boolean)
-            .sort((a, b) => a.localeCompare(b, "nl", { numeric: true }))}
-          note={openStop.note}
-          board={stopBoard}
-          failed={stopFailed}
-          direction={stopDirection ?? null}
-          onDirection={setStopDirection}
-          onPick={(key) => {
-            onPickRef.current(key, { id: openStop.stop.id, name: openStop.stop.name });
-            setOpenStop(null);
-          }}
-          onClose={() => setOpenStop(null)}
-        />
-      
+  const cardStop = openStop ?? leavingStop;
+  const stopCard = cardStop ? (
+    <StopCard
+      name={cardStop.stop.name}
+      lines={[...new Set([...cardStop.served, ...(stopBoard?.departures.map((departure) => departure.line) ?? [])])]
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, "nl", { numeric: true }))}
+      note={cardStop.note}
+      board={stopBoard}
+      failed={stopFailed}
+      direction={stopDirection ?? null}
+      onDirection={setStopDirection}
+      onPick={(key) => {
+        onPickRef.current(key, { id: cardStop.stop.id, name: cardStop.stop.name });
+        setOpenStop(null);
+      }}
+      onClose={() => setOpenStop(null)}
+    />
   ) : null;
 
   const legend = failed
@@ -1104,18 +1135,21 @@ export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarg
       {/* The stop card: in its popup on a wide screen; on a phone a sheet in <body>, because the
           map sits in its own stacking context under the board's sheet. */}
       {openStop && !openStop.phone && popupHost && createPortal(stopCard, popupHost)}
-      {openStop?.phone &&
+      {(phoneStop ?? leavingStop) &&
         portalTarget &&
         createPortal(
-          <section
-            aria-label={`Halte ${openStop.stop.name}`}
-            className="fixed inset-x-0 bottom-0 z-[1200] max-h-[calc(var(--app-h,100dvh)*0.78)] overflow-y-auto overscroll-contain rounded-t-3xl bg-achtergrond px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.16)] lg:hidden"
+          <Sheet
+            snap={stopSnap}
+            onSnapChange={setStopSnap}
+            label={`Halte ${(phoneStop ?? leavingStop)?.stop.name}`}
+            visible={phoneStop !== null}
+            enter
+            onDismiss={() => setOpenStop(null)}
+            onHidden={() => setLeavingStop(null)}
+            className="z-[1200] lg:hidden"
           >
-            <div className="flex justify-center pt-2 pb-1">
-              <span className="h-[5px] w-10 rounded-[3px] bg-rand" />
-            </div>
             {stopCard}
-          </section>,
+          </Sheet>,
           portalTarget,
         )}
     </div>
