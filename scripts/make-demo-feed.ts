@@ -1,19 +1,26 @@
-import { config, parseBoundingBox } from "../src/lib/config";
-import { writeDemoFeed } from "../src/lib/gtfs/demo-feed";
-import { importGtfs } from "../src/lib/gtfs/importer";
-import { localServiceDate, shiftServiceDate } from "../src/lib/time";
+// CLI: writes the fictional demo feed and imports it as the timetable database
 
-const zipPath = "data/demo-gtfs.zip";
+import { writeDemoFeed } from "@/features/gtfs/demo-feed"
+import { importGtfs } from "@/features/gtfs/importer"
+import { config, parseBoundingBox } from "@/lib/config"
+import { localServiceDate, shiftServiceDate } from "@/lib/time"
+
+// --- CONSTANTS ---
+
+const ZIP_PATH = "data/demo-gtfs.zip"
+
+// --- SCRIPT ---
+
 // Start yesterday so trips that run past midnight are present right after seeding.
-const startDate = shiftServiceDate(localServiceDate(Date.now()), -1);
+const startDate = shiftServiceDate(localServiceDate(Date.now()), -1)
 
-await writeDemoFeed(zipPath, startDate);
+await writeDemoFeed(ZIP_PATH, startDate)
 const summary = await importGtfs({
-  zipPath,
-  dbPath: config.dbPath,
-  bbox: parseBoundingBox(process.env.GTFS_BBOX),
-  source: "demo (fictional timetable)",
-  log: console.log,
-});
-console.log(`Demo database ready at ${config.dbPath}:`, summary);
-console.log("This timetable is invented. Run `pnpm gtfs:import` for the real one.");
+    zipPath: ZIP_PATH,
+    dbPath: config.dbPath,
+    bbox: parseBoundingBox(config.gtfsBbox),
+    source: "demo (fictional timetable)",
+    log: console.log,
+})
+console.log(`Demo database ready at ${config.dbPath}:`, summary)
+console.log("This timetable is invented. Run `pnpm gtfs:import` for the real one.")

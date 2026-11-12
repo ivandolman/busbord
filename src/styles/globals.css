@@ -1,0 +1,29 @@
+/* Global stylesheet: Tailwind, the theme tokens, the map styles and the base rules */
+
+@import "tailwindcss";
+@import "./theme/colors.css";
+@import "./theme/typography.css";
+@import "./map.css";
+
+/* Phone layout: the search bar covers the top of the map (see fitPadding in NetworkMap). */
+:root {
+    --map-top: 0px;
+    --sheet-h: 0px;
+}
+@media (max-width: 1023px) {
+    :root {
+        --map-top: calc(4.5rem + env(safe-area-inset-top));
+    }
+}
+
+/*
+ * iOS zooms in on a text field under 16px when it gets focus and does not zoom back out, which
+ * leaves the map, sheet and search bar shifted. Unlayered, so it wins over the text-* utilities.
+ */
+@media (pointer: coarse) {
+    input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+    select,
+    textarea {
+        font-size: max(16px, 1em);
+    }
+}

@@ -1,0 +1,35 @@
+/* Font and text-style tokens from the Figma design ("Bestemmingsbord" text styles) */
+
+@theme {
+    --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+    --text-heading-xl: 24px;
+    --text-heading-xl--line-height: 30px;
+    --text-heading-xl--font-weight: 700;
+    --text-heading-l: 20px;
+    --text-heading-l--line-height: 26px;
+    --text-heading-l--font-weight: 700;
+    --text-heading-m: 17px;
+    --text-heading-m--line-height: 22px;
+    --text-heading-m--font-weight: 600;
+    --text-body-m: 15px;
+    --text-body-m--line-height: 20px;
+    --text-body-s: 13px;
+    --text-body-s--line-height: 17px;
+    --text-label-xs: 12px;
+    --text-label-xs--line-height: 16px;
+    --text-label-xs--font-weight: 700;
+    --text-label-xs--letter-spacing: 1.2px;
+    --text-badge-m: 16px;
+    --text-badge-m--line-height: 20px;
+    --text-badge-m--font-weight: 700;
+    --text-badge-l: 24px;
+    --text-badge-l--line-height: 28px;
+    --text-badge-l--font-weight: 700;
+    --text-figure-l: 28px;
+    --text-figure-l--line-height: 32px;
+    --text-figure-l--font-weight: 900;
+    --text-figure-m: 17px;
+    --text-figure-m--line-height: 22px;
+    --text-figure-m--font-weight: 700;
+}

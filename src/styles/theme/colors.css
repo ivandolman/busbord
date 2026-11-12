@@ -1,0 +1,76 @@
+/* Colour tokens from the Figma design ("Bestemmingsbord" variables), light and dark */
+
+@theme {
+    --color-foreground: #111418;
+    --color-muted: #5b6470;
+    --color-background: #ffffff;
+    --color-surface: #f2f4f7;
+    --color-border: #e6e8ec;
+    --color-dark: #1b2230;
+    --color-on-dark: #ffffff;
+    --color-accent: #1f5bd8;
+    --color-accent-soft: #eef3ff;
+    --color-walk: #2f6fed;
+    --color-destination: #e5484d;
+    --color-success: #1a7f37;
+    --color-warning: #8a5200;
+    --color-warning-bg: #fff4e0;
+    --color-warning-on-dark: #ffc66b;
+    --color-map-base: #ecedef;
+    --color-warning-border: #f0c36d;
+    --color-error: #c9372c;
+}
+
+:root {
+    color-scheme: light;
+}
+
+/*
+ * Dark mode: follows the system unless the device chose "Licht" or "Donker" in the settings
+ * (data-theme on <html>, set before the first paint by the script in layout.tsx). The same values
+ * twice, because one block is a media query and the other an attribute.
+ */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --color-foreground: #e8eaed;
+        --color-muted: #9aa3ae;
+        --color-background: #161a21;
+        --color-surface: #20262f;
+        --color-border: #2f3742;
+        --color-dark: #2a3445;
+        --color-on-dark: #ffffff;
+        --color-accent: #4d84f0;
+        --color-accent-soft: #1b2a46;
+        --color-walk: #5b8def;
+        --color-destination: #f2555a;
+        --color-success: #34a853;
+        --color-warning: #f0b45a;
+        --color-warning-bg: #33260f;
+        --color-warning-on-dark: #ffc66b;
+        --color-map-base: #1b1f25;
+        --color-warning-border: #6b4f1d;
+        --color-error: #ff6b61;
+    }
+}
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-foreground: #e8eaed;
+    --color-muted: #9aa3ae;
+    --color-background: #161a21;
+    --color-surface: #20262f;
+    --color-border: #2f3742;
+    --color-dark: #2a3445;
+    --color-on-dark: #ffffff;
+    --color-accent: #4d84f0;
+    --color-accent-soft: #1b2a46;
+    --color-walk: #5b8def;
+    --color-destination: #f2555a;
+    --color-success: #34a853;
+    --color-warning: #f0b45a;
+    --color-warning-bg: #33260f;
+    --color-warning-on-dark: #ffc66b;
+    --color-map-base: #1b1f25;
+    --color-warning-border: #6b4f1d;
+    --color-error: #ff6b61;
+}

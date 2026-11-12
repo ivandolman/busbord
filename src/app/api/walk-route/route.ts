@@ -1,29 +1,31 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { distanceMeters } from "@/lib/geo";
-import { jsonError } from "@/lib/http";
-import { parsePointId } from "@/lib/place";
-import { getWalker } from "@/lib/roads/walking";
+// GET /api/walk-route: the walking route between two map points along streets and footpaths
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { NextResponse, type NextRequest } from "next/server"
 
-/** Nobody walks further to a bus; longer requests are refused rather than routed. */
-const MAX_METERS = 4000;
+import { WalkRouteQuerySchema } from "@/features/board/board.schema"
+import { boardService } from "@/features/board/board.service"
+import { handleRouteError, parseQuery } from "@/lib/http"
 
-/**
- * `?from=@lat,lon&to=@lat,lon`: the walking route between two points along streets and
- * footpaths. `path` is null without a road network or when either end is off it; the map then
- * draws a straight dashed line.
- */
+// --- CONSTANTS ---
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+// --- HANDLER ---
+
+/** `?from=@lat,lon&to=@lat,lon`; `path` is null when there is no walking route to draw. */
 export function GET(request: NextRequest): NextResponse {
-  const params = request.nextUrl.searchParams;
-  const from = parsePointId(params.get("from") ?? "");
-  const to = parsePointId(params.get("to") ?? "");
-  if (!from || !to) return jsonError(400, "Ongeldige punten.");
-  if (distanceMeters(from.lat, from.lon, to.lat, to.lon) > MAX_METERS) return jsonError(400, "Te ver om te lopen.");
-  const path = getWalker()?.route([from.lat, from.lon], [to.lat, to.lon]) ?? null;
-  return NextResponse.json(
-    { path: path?.map(([lat, lon]) => [Math.round(lat * 1e5) / 1e5, Math.round(lon * 1e5) / 1e5]) ?? null },
-    { headers: { "Cache-Control": "private, max-age=3600" } },
-  );
+    const query = parseQuery(
+        WalkRouteQuerySchema,
+        request.nextUrl.searchParams,
+        "Ongeldige punten.",
+    )
+    if (query.error) return query.error
+
+    try {
+        const route = boardService.getWalkRoute(query.data.from, query.data.to)
+        return NextResponse.json(route, { headers: { "Cache-Control": "private, max-age=3600" } })
+    } catch (error) {
+        return handleRouteError(error)
+    }
 }

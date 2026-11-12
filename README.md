@@ -75,23 +75,24 @@ In Coolify:
 6. **Scheduled task** to keep the timetable current, e.g. daily at 04:30
    (`30 4 * * *`), command:
 
-   ```
-   node scripts/import-gtfs.mjs
-   ```
+    ```
+    node scripts/import-gtfs.mjs
+    ```
 
-   The new database is swapped in atomically while the app keeps running. Only one import runs
-   at a time (`data/gtfs.sqlite.lock`); a second one exits straight away. ovapi limits downloads
-   per address, so the import is frugal: it sends the ETag of the last imported feed and stops
-   when the feed is unchanged (and the region and road network too); `--force` imports anyway.
-   On HTTP 429 or a server error it waits (the server's `Retry-After`, else 1, 4, 16, 60 min)
-   and tries again, up to 5 attempts.
+    The new database is swapped in atomically while the app keeps running. Only one import runs
+    at a time (`data/gtfs.sqlite.lock`); a second one exits straight away. ovapi limits downloads
+    per address, so the import is frugal: it sends the ETag of the last imported feed and stops
+    when the feed is unchanged (and the region and road network too); `--force` imports anyway.
+    On HTTP 429 or a server error it waits (the server's `Retry-After`, else 1, 4, 16, 60 min)
+    and tries again, up to 5 attempts.
+
 7. Optional, for lines along the street and real walking distances: run once from the
    container's terminal (downloads ~750 MB, temporarily needs that much disk plus memory for
    the road graph), then import again:
 
-   ```
-   node scripts/import-roads.mjs && node scripts/import-gtfs.mjs
-   ```
+    ```
+    node scripts/import-roads.mjs && node scripts/import-gtfs.mjs
+    ```
 
 The container has a healthcheck on `/api/health` (public; it only says whether the server
 runs and whether a timetable is present). Coolify's proxy sets `X-Forwarded-For`, which the
@@ -233,13 +234,14 @@ src/app/api/        /api/stops?q=   /api/board?from=&to=&walk=&tie=&trains=
                     /api/login (POST form)   /api/logout (POST)   /api/health
 src/proxy.ts        login check on every request (src/lib/auth.ts)
 src/components/     StopPicker, BoardView, BoardApp, NetworkMap (Leaflet)
-tests/              unit tests + an end-to-end test on the demo feed
+src/**/*.tests.ts   unit tests next to their source (`pnpm test`); `*.integration.tests.ts`
+                    run on the demo feed and temp files (`pnpm test:integration`)
 ```
 
 ## What is and is not verified
 
-Verified: `pnpm test` (61 tests), `pnpm typecheck`, `pnpm build`, and a headless-browser run
-of the page, all against the demo feed.
+Verified: `pnpm test` and `pnpm test:integration` (67 tests), `pnpm typecheck`, `pnpm build`,
+and a headless-browser run of the page, all against the demo feed.
 
 Not verified at first, because the environment this was built in could not reach gtfs.ovapi.nl:
 

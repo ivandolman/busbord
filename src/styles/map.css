@@ -1,0 +1,101 @@
+/* Leaflet overrides and map labels, so the map follows the theme and the design */
+
+/* Mute the base map so the lines stand out. */
+.network-tiles {
+    filter: grayscale(0.7) brightness(1.04) contrast(0.9);
+}
+/* No dark base map exists for these sources: turn the light one around (water stays blue-ish). */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .network-tiles {
+        filter: invert(1) hue-rotate(180deg) grayscale(0.6) brightness(0.8) contrast(0.85);
+    }
+}
+:root[data-theme="dark"] .network-tiles {
+    filter: invert(1) hue-rotate(180deg) grayscale(0.6) brightness(0.8) contrast(0.85);
+}
+
+/* Leaflet's own white boxes (popups, attribution, zoom) follow the theme. */
+:root .leaflet-popup-content-wrapper,
+:root .leaflet-popup-tip {
+    background: var(--color-background);
+    color: var(--color-foreground);
+}
+:root .leaflet-container .leaflet-control-attribution {
+    background: color-mix(in srgb, var(--color-background) 80%, transparent);
+    color: var(--color-muted);
+}
+:root .leaflet-container .leaflet-control-attribution a {
+    color: var(--color-accent);
+}
+:root .leaflet-bar a,
+:root .leaflet-bar a:hover {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    border-color: var(--color-border);
+}
+
+/* Leaflet popups as the design's cards (the stop card on a wide screen). */
+.leaflet-popup.card-popup .leaflet-popup-content-wrapper {
+    border-radius: 20px;
+    padding: 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
+}
+.leaflet-popup.card-popup .leaflet-popup-content {
+    margin: 0;
+    width: auto !important;
+    font: inherit;
+}
+.leaflet-popup.card-popup .leaflet-popup-close-button {
+    display: none;
+}
+/* ":root" outranks leaflet.css, which is loaded after this file. */
+:root .leaflet-container {
+    font-family: var(--font-sans);
+    background: var(--color-map-base);
+}
+
+@media (max-width: 1023px) {
+    .leaflet-left {
+        left: env(safe-area-inset-left);
+    }
+    .leaflet-right {
+        right: env(safe-area-inset-right);
+    }
+    /* Attribution and other bottom controls stay above the bottom sheet. */
+    .leaflet-bottom {
+        bottom: min(var(--sheet-h), calc(var(--app-h, 100dvh) * 0.55));
+        transition: bottom 0.2s;
+    }
+}
+
+/* "Kaartlabel" in the design: labels on the map (walking area, where to get on and off). */
+.map-label {
+    width: max-content;
+    transform: translate(-50%, -50%);
+    border-radius: 10px;
+    padding: 5px 9px;
+    font: 600 13px/17px var(--font-sans);
+    color: #fff;
+    white-space: nowrap;
+}
+.leaflet-tooltip.map-label {
+    transform: none;
+    border: 0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.leaflet-tooltip.map-label::before {
+    display: none;
+}
+.map-label-walk {
+    background: var(--color-walk);
+}
+.map-label-board,
+.leaflet-tooltip.map-label-board {
+    background: var(--color-dark);
+    color: #fff;
+}
+.map-label-alight,
+.leaflet-tooltip.map-label-alight {
+    background: var(--color-destination);
+    color: #fff;
+}

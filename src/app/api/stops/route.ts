@@ -1,26 +1,34 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { TimetableRepository } from "@/lib/board/repository";
-import { config } from "@/lib/config";
-import { getDatabase } from "@/lib/db";
-import { handleRouteError, jsonError } from "@/lib/http";
+// GET /api/stops: stop search by name for the stop picker
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { NextResponse, type NextRequest } from "next/server"
 
-const MAX_QUERY_LENGTH = 60;
-const RESULT_LIMIT = 8;
+import { StopSearchQuerySchema } from "@/features/board/board.schema"
+import { boardService } from "@/features/board/board.service"
+import { handleRouteError, parseQuery } from "@/lib/http"
+
+// --- CONSTANTS ---
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+/** Shorter queries match too much to be useful; they get an empty, uncached answer. */
+const MIN_QUERY_LENGTH = 2
+
+// --- HANDLER ---
 
 export function GET(request: NextRequest): NextResponse {
-  const query = request.nextUrl.searchParams.get("q")?.trim() ?? "";
-  if (query.length < 2) return NextResponse.json({ stops: [] });
-  if (query.length > MAX_QUERY_LENGTH) return jsonError(400, "Zoekterm is te lang.");
+    const query = parseQuery(
+        StopSearchQuerySchema,
+        request.nextUrl.searchParams,
+        "Zoekterm is te lang.",
+    )
+    if (query.error) return query.error
+    if (query.data.q.length < MIN_QUERY_LENGTH) return NextResponse.json({ stops: [] })
 
-  try {
-    const stops = new TimetableRepository(getDatabase())
-      .searchAreas(query, RESULT_LIMIT, config.board.sameStopMeters)
-      .map(({ id, name }) => ({ id, name }));
-    return NextResponse.json({ stops }, { headers: { "Cache-Control": "private, max-age=60" } });
-  } catch (error) {
-    return handleRouteError(error);
-  }
+    try {
+        const stops = boardService.searchStops(query.data.q)
+        return NextResponse.json({ stops }, { headers: { "Cache-Control": "private, max-age=60" } })
+    } catch (error) {
+        return handleRouteError(error)
+    }
 }

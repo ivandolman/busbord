@@ -1,34 +1,29 @@
-/**
- * A board endpoint is either a stop area id or a point picked on the map, written "@lat,lon".
- * Points keep five decimals (about a metre), which is plenty and keeps URLs short.
- */
-export interface Point {
-  lat: number;
-  lon: number;
-}
+// Board endpoint ids: a stop area id or a point picked on the map, written "@lat,lon"
 
-const POINT_PATTERN = /^@(-?\d{1,2}(?:\.\d{1,7})?),(-?\d{1,3}(?:\.\d{1,7})?)$/;
+import type { z } from "zod"
+
+import { AreaIdSchema, PlaceIdSchema, PointIdSchema, type PointSchema } from "@/lib/schemas"
+
+// --- INTERFACES ---
+
+export type Point = z.infer<typeof PointSchema>
+
+// --- HELPERS ---
 
 export function parsePointId(id: string): Point | null {
-  const match = POINT_PATTERN.exec(id);
-  if (!match) return null;
-  const lat = Number(match[1]);
-  const lon = Number(match[2]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
-  return { lat, lon };
+    return PointIdSchema.safeParse(id).data ?? null
 }
 
+/** Five decimals is about a metre: plenty, and it keeps URLs short. */
 export function pointId(point: Point): string {
-  return `@${point.lat.toFixed(5)},${point.lon.toFixed(5)}`;
+    return `@${point.lat.toFixed(5)},${point.lon.toFixed(5)}`
 }
-
-const AREA_ID_PATTERN = /^[\w:.\-|]{1,80}$/;
 
 export function isAreaId(value: string | null): value is string {
-  return value !== null && AREA_ID_PATTERN.test(value);
+    return value !== null && AreaIdSchema.safeParse(value).success
 }
 
 /** A stop area id or a map point ("@lat,lon"). Safe to use in the browser. */
 export function isPlaceId(value: string | null): value is string {
-  return value !== null && (AREA_ID_PATTERN.test(value) || parsePointId(value) !== null);
+    return value !== null && PlaceIdSchema.safeParse(value).success
 }

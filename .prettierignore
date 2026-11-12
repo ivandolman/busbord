@@ -1,0 +1,7 @@
+.next
+dist
+data
+node_modules
+pnpm-lock.yaml
+.claude
+.github

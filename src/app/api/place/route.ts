@@ -1,20 +1,26 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { TimetableRepository } from "@/lib/board/repository";
-import { resolveEndpoint } from "@/lib/board/service";
-import { getDatabase } from "@/lib/db";
-import { handleRouteError, isPlaceId, jsonError } from "@/lib/http";
+// GET /api/place: display name for a stop area or map point, for selections restored from the URL
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
+import { NextResponse, type NextRequest } from "next/server"
 
-/** Display name for a stop area or map point, for selections restored from the URL. */
+import { PlaceQuerySchema } from "@/features/board/board.schema"
+import { boardService } from "@/features/board/board.service"
+import { handleRouteError, parseQuery } from "@/lib/http"
+
+// --- CONSTANTS ---
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+// --- HANDLER ---
+
 export function GET(request: NextRequest): NextResponse {
-  const id = request.nextUrl.searchParams.get("id");
-  if (!isPlaceId(id)) return jsonError(400, "Onbekende plek.");
-  try {
-    const { area } = resolveEndpoint(new TimetableRepository(getDatabase()), id, { walking: false, role: "from" });
-    return NextResponse.json({ id, name: area.name }, { headers: { "Cache-Control": "private, max-age=3600" } });
-  } catch (error) {
-    return handleRouteError(error);
-  }
+    const query = parseQuery(PlaceQuerySchema, request.nextUrl.searchParams, "Onbekende plek.")
+    if (query.error) return query.error
+
+    try {
+        const place = boardService.getPlace(query.data.id)
+        return NextResponse.json(place, { headers: { "Cache-Control": "private, max-age=3600" } })
+    } catch (error) {
+        return handleRouteError(error)
+    }
 }
