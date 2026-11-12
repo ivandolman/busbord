@@ -4,6 +4,7 @@ import { cva } from "class-variance-authority"
 
 import LineBadge from "@/app/_components/line-badge"
 import { Icon } from "@/components/ui/icon"
+import { RollingText } from "@/components/ui/rolling-text"
 import type { StopDeparture, StopPole } from "@/features/board/board.types"
 import { delayMinutes, formatWait, MODE_LABEL } from "@/features/board/format"
 
@@ -66,10 +67,10 @@ export default function StopDepartureItem({
                         status: departure.cancelled ? "cancelled" : "running",
                     })}
                 >
-                    {formatWait(departure.expectedDeparture, now)}
+                    <RollingText value={formatWait(departure.expectedDeparture, now)} />
                 </span>
                 {!departure.cancelled && delay >= 1 && (
-                    <span className="text-label-xs text-warning">+{delay}</span>
+                    <RollingText value={`+${delay}`} className="text-label-xs text-warning" />
                 )}
             </span>
             <LineBadge line={departure.line} mode={departure.mode} />

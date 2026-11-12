@@ -6,6 +6,15 @@
     /* "backwards", not "both": a transform left on the wrapper would trap fixed elements in it. */
     --animate-sheet-content-in: sheet-content-in 0.24s var(--ease-sheet) backwards;
 
+    --animate-value-roll: value-roll 0.36s var(--ease-sheet);
+
+    @keyframes value-roll {
+        from {
+            opacity: 0;
+            transform: translateY(-0.6em);
+        }
+    }
+
     @keyframes sheet-content-in {
         from {
             opacity: 0;

@@ -3,6 +3,7 @@
 import { cva } from "class-variance-authority"
 
 import LineBadge from "@/app/_components/line-badge"
+import { RollingText } from "@/components/ui/rolling-text"
 import type { Board, Departure } from "@/features/board/board.types"
 import { minutes, shortStop } from "@/features/board/departure-text"
 import { delayMinutes, formatClock, formatWait, MODE_LABEL } from "@/features/board/format"
@@ -122,9 +123,14 @@ export default function GroupRow({ group, board, now, onShowRoute }: GroupRowPro
                                     title={chipTitle(departure)}
                                     className={timeChipVariants({ state: chipState(departure) })}
                                 >
-                                    {allMinutes ? wait.replace(" min", "") : wait}
+                                    <RollingText
+                                        value={allMinutes ? wait.replace(" min", "") : wait}
+                                    />
                                     {!departure.cancelled && delay >= 1 && (
-                                        <span className="text-label-xs text-warning">+{delay}</span>
+                                        <RollingText
+                                            value={`+${delay}`}
+                                            className="text-label-xs text-warning"
+                                        />
                                     )}
                                 </span>
                             )

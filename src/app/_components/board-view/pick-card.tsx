@@ -1,6 +1,7 @@
 // "Pak deze": the one departure to take, with what comes after it
 
 import LineBadge from "@/app/_components/line-badge"
+import { RollingText } from "@/components/ui/rolling-text"
 import type { Board, Departure } from "@/features/board/board.types"
 import { minutes, walkLine, whenPhrase } from "@/features/board/departure-text"
 import { delayMinutes, formatClock, formatWait } from "@/features/board/format"
@@ -46,10 +47,13 @@ export default function PickCard({ pick, then, board, now, onShowRoute }: PickCa
             <p className="flex flex-wrap items-baseline gap-x-2">
                 <span className="text-figure-l tabular-nums">
                     {mustWalk ? "Ga lopen " : "Vertrekt "}
-                    {whenPhrase(leave)}
+                    <RollingText value={whenPhrase(leave)} />
                 </span>
                 {delay >= 1 && (
-                    <span className="text-body-m text-warning-on-dark font-semibold">+{delay}</span>
+                    <RollingText
+                        value={`+${delay}`}
+                        className="text-body-m text-warning-on-dark font-semibold"
+                    />
                 )}
             </p>
             <p className="text-body-s">{facts.filter(Boolean).join(" · ")}</p>
@@ -64,9 +68,10 @@ export default function PickCard({ pick, then, board, now, onShowRoute }: PickCa
                             className="inline-flex items-center gap-2"
                         >
                             <LineBadge line={next.line} mode={next.mode} />
-                            <span className="font-semibold">
-                                {formatWait(next.expectedDeparture, now)}
-                            </span>
+                            <RollingText
+                                value={formatWait(next.expectedDeparture, now)}
+                                className="font-semibold"
+                            />
                             {next.walkToSeconds > 0 && (
                                 <span>(eerst {minutes(next.walkToSeconds)} min lopen)</span>
                             )}
