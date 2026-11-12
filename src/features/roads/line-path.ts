@@ -5,6 +5,8 @@ import type { LatLon, RoadRouter, RouteMode } from "./router"
 // --- CONSTANTS ---
 
 const METERS_PER_DEGREE = 111_320
+/** A stop further than this from the feed's shape is not on it: the shape skips a detour. */
+const OFF_SHAPE_METERS = 150
 
 // --- INTERFACES ---
 
@@ -131,20 +133,27 @@ export function buildLinePath(
 ): LatLon[] {
     const positions = stops.map((stop) => stop.position)
     const at = shape && shape.length >= 2 ? locateStops(shape, positions) : null
+    // Each piece starts where the previous one ended: where the shape passes the stop (that is on
+    // the road, the stop pole is not), or the stop itself when the shape does not pass it.
+    const anchors = stops.map((stop, i) => {
+        const point = at && shape ? shape[at[i] as number] : undefined
+        return point && meters(point, stop.position) <= OFF_SHAPE_METERS ? point : stop.position
+    })
     const path: LatLon[] = []
 
     for (let i = 1; i < stops.length; i++) {
         const a = stops[i - 1] as { id: string; position: LatLon }
         const b = stops[i] as { id: string; position: LatLon }
-        const hint = at && shape ? shape.slice(at[i - 1], (at[i] as number) + 1) : null
+        const from = anchors[i - 1] as LatLon
+        const to = anchors[i] as LatLon
+        const onShape = from !== a.position && to !== b.position
+        const hint = onShape && at && shape ? shape.slice(at[i - 1], (at[i] as number) + 1) : null
         const usefulHint = hint && hint.length >= 2 ? hint : null
-        const key = `${mode}|${a.id}|${b.id}`
+        // With its ends in the key, a piece routed for another pattern of the line joins up too.
+        const key = `${mode}|${a.id}|${b.id}|${from.join(",")}|${to.join(",")}`
 
         let piece = cache.get(key)
         if (!piece) {
-            // Start and end where the feed's shape passes the stop: that is on the road, the stop pole is not.
-            const from = usefulHint ? (usefulHint[0] as LatLon) : a.position
-            const to = usefulHint ? (usefulHint[usefulHint.length - 1] as LatLon) : b.position
             const routed = router.route(mode, from, to, usefulHint)
             const direct = meters(a.position, b.position)
             const limit = Math.max(
@@ -152,10 +161,7 @@ export function buildLinePath(
                 direct + 800,
                 usefulHint ? length(usefulHint) * 1.5 : 0,
             )
-            piece =
-                routed && length(routed) <= limit
-                    ? routed
-                    : (usefulHint ?? [a.position, b.position])
+            piece = routed && length(routed) <= limit ? routed : (usefulHint ?? [from, to])
             cache.set(key, piece)
         }
         for (const point of piece) {

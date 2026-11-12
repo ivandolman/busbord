@@ -3,8 +3,13 @@
 import assert from "node:assert"
 import { describe, it } from "node:test"
 
-import { locateStops, locateStopsOnPath, slicePath } from "@/features/roads/line-path"
-import type { LatLon } from "@/features/roads/router"
+import {
+    buildLinePath,
+    locateStops,
+    locateStopsOnPath,
+    slicePath,
+} from "@/features/roads/line-path"
+import type { LatLon, RoadRouter } from "@/features/roads/router"
 
 // --- HELPERS ---
 
@@ -16,7 +21,51 @@ function assertCloseTo(actual: number | undefined, expected: number, digits: num
     )
 }
 
+/** Routes every piece as a straight line between its ends. */
+const straightRouter = {
+    route: (_mode: string, from: LatLon, to: LatLon) => [from, to],
+} as unknown as RoadRouter
+
 // --- TESTS ---
+
+describe("buildLinePath", () => {
+    // Shape along one street; the middle stop lies ~550 m off it, a detour the shape leaves out.
+    const shape: LatLon[] = [0, 1, 2, 3, 4, 5].map((step) => [52, 5 + step * 0.002])
+    const stops = [
+        { id: "a", position: [52, 5] as LatLon },
+        { id: "b", position: [52.005, 5.005] as LatLon },
+        { id: "c", position: [52, 5.01] as LatLon },
+    ]
+
+    it("visits a stop the shape skips, joining the pieces on both sides there", () => {
+        const path = buildLinePath(straightRouter, "road", stops, shape, new Map())
+        assert.deepStrictEqual(path, [
+            [52, 5],
+            [52.005, 5.005],
+            [52, 5.01],
+        ])
+    })
+
+    it("falls back to the shape between stops on it when routing fails", () => {
+        const failingRouter = { route: () => null } as unknown as RoadRouter
+        const onShape = [stops[0], stops[2]] as { id: string; position: LatLon }[]
+        const path = buildLinePath(failingRouter, "road", onShape, shape, new Map())
+        assert.deepStrictEqual(path, shape)
+    })
+
+    it("does not reuse a cached piece that starts somewhere else", () => {
+        const cache = new Map<string, LatLon[]>()
+        // Another pattern's shape passes stop "a" ~20 m further north.
+        const otherShape: LatLon[] = shape.map(([lat, lon]) => [lat + 0.0002, lon])
+        buildLinePath(straightRouter, "road", stops, otherShape, cache)
+        const path = buildLinePath(straightRouter, "road", stops, shape, cache)
+        assert.deepStrictEqual(path, [
+            [52, 5],
+            [52.005, 5.005],
+            [52, 5.01],
+        ])
+    })
+})
 
 describe("locateStops", () => {
     it("matches the right pass of a line that returns to where it started", () => {
