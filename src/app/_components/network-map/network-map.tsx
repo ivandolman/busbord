@@ -27,6 +27,8 @@ import { useNetworkLayers } from "./use-network-layers"
 import { usePlaceMarkers } from "./use-place-markers"
 import { useReachable } from "./use-reachable"
 import { useStopDepartures } from "./use-stop-departures"
+import { useStopFlight } from "./use-stop-flight"
+import { useStopHighlight } from "./use-stop-highlight"
 import { useStopLabels } from "./use-stop-labels"
 import { useWalkAreas } from "./use-walk-areas"
 import { useWalkLegs } from "./use-walk-legs"
@@ -119,6 +121,8 @@ export default function NetworkMap({
         onOpenStop: setOpenStop,
         onShowLine: setLineQuery,
     })
+    const flight = useStopFlight(map, openStop?.phone ? openStop : null)
+    useStopHighlight(map, openStop)
     useStopLabels({ map, network, layersRef, focus, reachable, toId, walk, walkQuery })
     useWalkAreas({ map, fromId, toId, walk, walkQuery })
     useWalkLegs(map, walkLegs)
@@ -138,6 +142,7 @@ export default function NetworkMap({
             now={stopCard.now}
             onDirection={stopCard.setDirection}
             onPick={(key) => {
+                flight.forget()
                 onPick(key, { id: cardStop.stop.id, name: cardStop.stop.name })
                 setOpenStop(null)
             }}

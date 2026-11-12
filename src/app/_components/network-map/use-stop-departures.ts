@@ -6,7 +6,6 @@ import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react"
 
 import L from "leaflet"
 
-import { VISIBLE } from "@/components/ui/sheet"
 import type { StopBoard } from "@/features/board/board.types"
 
 import { fetchParsed } from "./fetch-parsed"
@@ -82,7 +81,6 @@ export function useStopDepartures({
         let popup: L.Popup | null = null
         if (openStop.phone || !popupHost) {
             map.closePopup()
-            panAboveSheet(map, openStop.latlng)
         } else {
             popup = L.popup({
                 offset: [0, -4],
@@ -186,21 +184,6 @@ export function useStopDepartures({
 }
 
 // --- HELPERS ---
-
-/** Slides the map along with the stop's sheet, so the stop stays in sight above it. */
-function panAboveSheet(map: L.Map, latlng: L.LatLng) {
-    const style = getComputedStyle(document.documentElement)
-    const top = parseFloat(style.getPropertyValue("--map-top")) || 0
-    const screen = parseFloat(style.getPropertyValue("--app-h")) || window.innerHeight
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-    map.panInside(latlng, {
-        paddingTopLeft: [48, top + 48],
-        paddingBottomRight: [48, screen * VISIBLE.peek + 48],
-        animate: !reduced,
-        duration: 0.42,
-        easeLinearity: 0.2,
-    })
-}
 
 /** The card state of the stop with `key`, fresh when the state belongs to another stop. */
 function cardFor(current: CardState | null, key: number): CardState {
