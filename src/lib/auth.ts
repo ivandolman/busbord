@@ -1,4 +1,5 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { NextResponse } from "next/server";
 
 /**
  * Password login for the whole app. One shared password (AUTH_PASSWORD), because there is one
@@ -140,6 +141,14 @@ export class LoginLimiter {
 export const loginLimiter = new LoginLimiter();
 /** All clients together, against guessing from many addresses at once. */
 export const globalLoginLimiter = new LoginLimiter(50);
+
+/**
+ * 303 redirect with a relative Location. Behind a reverse proxy request.url holds the container
+ * address (http://0.0.0.0:3000), so an absolute URL built from it sends the browser there.
+ */
+export function seeOther(path: string): NextResponse {
+  return new NextResponse(null, { status: 303, headers: { Location: path } });
+}
 
 /** Secure cookies need HTTPS; on a plain-HTTP home network they would never be sent back. */
 export function isHttps(url: URL, forwardedProto: string | null): boolean {

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { authMode, createSessionToken, isHttps, isPublicPath, SESSION_COOKIE, sessionCookie, shouldRenew, verifySessionToken } from "@/lib/auth";
+import { authMode, createSessionToken, isHttps, isPublicPath, seeOther, SESSION_COOKIE, sessionCookie, shouldRenew, verifySessionToken } from "@/lib/auth";
 
 /** Every page and API call needs a login (src/lib/auth.ts), except the login page and its assets. */
 export function proxy(request: NextRequest): NextResponse {
@@ -24,9 +24,8 @@ export function proxy(request: NextRequest): NextResponse {
         { status: 401, headers: { "Cache-Control": "no-store", "X-Auth-Required": "1" } },
       );
     }
-    const login = new URL("/login", request.url);
-    if (pathname !== "/" || search) login.searchParams.set("next", pathname + search);
-    return NextResponse.redirect(login, 303);
+    const query = pathname !== "/" || search ? `?${new URLSearchParams({ next: pathname + search })}` : "";
+    return seeOther(`/login${query}`);
   }
 
   const response = NextResponse.next();
