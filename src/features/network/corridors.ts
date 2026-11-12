@@ -17,7 +17,21 @@ const SNAP_METERS = 25
 const STEP_METERS = 8
 /** How far a shortcut over existing edges may wander when a point skips a node. */
 const MAX_DETOUR_HOPS = 6
-const SIMPLIFY_METERS = 1.5
+/** Kinks and knots at junctions: pieces shorter than this between two junctions fold into one. */
+const JUNCTION_METERS = 20
+/** A loop back to the same junction this short is snapping noise, not a turning loop. */
+const NOISE_LOOP_METERS = 60
+/** Two strands between the same junctions this close together are one road (both carriageways). */
+const PARALLEL_METERS = 60
+/** Three junctions joined by pieces this short are one junction drawn as a little triangle. */
+const TRIANGLE_METERS = 60
+/** A sharp back-and-forth with a leg this short is snapping noise. */
+const SPIKE_METERS = 15
+/** Straightens noise before rounding; corners left after it are real bends. */
+const DENOISE_METERS = 3
+/** Corner-cutting rounds: each one rounds the bends further. */
+const ROUNDING_PASSES = 3
+const SIMPLIFY_METERS = 0.8
 
 // --- INTERFACES ---
 
@@ -108,6 +122,34 @@ class CorridorGraph {
         this.edges[b]?.set(a, edge)
     }
 
+    degree(node: number): number {
+        return this.edges[node]?.size ?? 0
+    }
+
+    removeEdge(a: number, b: number): void {
+        this.edges[a]?.delete(b)
+        this.edges[b]?.delete(a)
+    }
+
+    /** Folds node b into node a: b's edges move to a, its points count towards a's position. */
+    merge(a: number, b: number): void {
+        if (a === b) return
+        for (const [neighbour, edge] of [...(this.edges[b] ?? [])]) {
+            this.removeEdge(b, neighbour)
+            if (neighbour === a) continue
+            const existing = this.edges[a]?.get(neighbour)
+            if (existing) {
+                for (const line of edge.lines) existing.lines.add(line)
+            } else {
+                this.edges[a]?.set(neighbour, edge)
+                this.edges[neighbour]?.set(a, edge)
+            }
+        }
+        this.sumX[a] = (this.sumX[a] as number) + (this.sumX[b] as number)
+        this.sumY[a] = (this.sumY[a] as number) + (this.sumY[b] as number)
+        this.count[a] = (this.count[a] as number) + (this.count[b] as number)
+    }
+
     distance(a: number, b: number): number {
         return Math.hypot(
             (this.x[a] as number) - (this.x[b] as number),
@@ -153,18 +195,64 @@ function sameLines(a: Set<number>, b: Set<number>): boolean {
     return true
 }
 
-/** Each interior point moves halfway to the middle of its neighbours; ends stay put. */
-function smooth(points: [number, number][]): [number, number][] {
+/** Chaikin corner cutting: every bend becomes a rounder one; the ends stay where they are. */
+function round(points: [number, number][]): [number, number][] {
     if (points.length < 3) return points
-    return points.map((point, i) => {
-        const before = points[i - 1]
-        const after = points[i + 1]
-        if (!before || !after) return point
-        return [
-            point[0] * 0.5 + (before[0] + after[0]) * 0.25,
-            point[1] * 0.5 + (before[1] + after[1]) * 0.25,
-        ]
-    })
+    const result: [number, number][] = [points[0] as [number, number]]
+    for (let i = 1; i < points.length; i++) {
+        const [ax, ay] = points[i - 1] as [number, number]
+        const [bx, by] = points[i] as [number, number]
+        if (i > 1) result.push([ax * 0.75 + bx * 0.25, ay * 0.75 + by * 0.25])
+        if (i < points.length - 1) result.push([ax * 0.25 + bx * 0.75, ay * 0.25 + by * 0.75])
+    }
+    result.push(points[points.length - 1] as [number, number])
+    return result
+}
+
+/** Drops points where the path doubles back over a short leg: snapping noise, not a road. */
+function despike(points: [number, number][]): [number, number][] {
+    let result = points
+    for (let changed = true; changed && result.length > 2;) {
+        changed = false
+        const kept: [number, number][] = [result[0] as [number, number]]
+        for (let i = 1; i < result.length - 1; i++) {
+            const [ax, ay] = kept[kept.length - 1] as [number, number]
+            const [bx, by] = result[i] as [number, number]
+            const [cx, cy] = result[i + 1] as [number, number]
+            const ab = Math.hypot(bx - ax, by - ay)
+            const bc = Math.hypot(cx - bx, cy - by)
+            const cos =
+                ab === 0 || bc === 0 ? 1 : ((bx - ax) * (cx - bx) + (by - ay) * (cy - by)) / ab / bc
+            if (cos < -0.2 && Math.min(ab, bc) < SPIKE_METERS) {
+                changed = true
+                continue
+            }
+            kept.push([bx, by])
+        }
+        kept.push(result[result.length - 1] as [number, number])
+        result = kept
+    }
+    return result
+}
+
+/** Largest distance from any point of `a` to the polyline `b`. */
+function farthest(a: [number, number][], b: [number, number][]): number {
+    let worst = 0
+    for (const [px, py] of a) {
+        let best = Infinity
+        for (let i = 1; i < b.length; i++) {
+            const [ax, ay] = b[i - 1] as [number, number]
+            const [bx, by] = b[i] as [number, number]
+            const dx = bx - ax
+            const dy = by - ay
+            const lengthSquared = dx * dx + dy * dy
+            let t = lengthSquared === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / lengthSquared
+            t = Math.max(0, Math.min(1, t))
+            best = Math.min(best, Math.hypot(px - (ax + t * dx), py - (ay + t * dy)))
+        }
+        worst = Math.max(worst, best)
+    }
+    return worst
 }
 
 /** Douglas-Peucker on metric points. */
@@ -199,6 +287,131 @@ function simplify(points: [number, number][], tolerance: number): [number, numbe
         }
     }
     return points.filter((_, i) => keep[i] === 1)
+}
+
+/** The chain of nodes from `start` through `next` up to the next junction, and its length. */
+function chain(
+    graph: CorridorGraph,
+    position: (node: number) => [number, number],
+    isBreak: (node: number) => boolean,
+    start: number,
+    next: number,
+): { nodes: number[]; length: number } {
+    const nodes = [start, next]
+    let length = 0
+    let from = start
+    let at = next
+    for (;;) {
+        const [ax, ay] = position(from)
+        const [bx, by] = position(at)
+        length += Math.hypot(bx - ax, by - ay)
+        if (at === start || isBreak(at)) break
+        const onward = [...(graph.edges[at] as Map<number, Edge>).keys()].find(
+            (neighbour) => neighbour !== from,
+        )
+        if (onward === undefined) break
+        from = at
+        at = onward
+        nodes.push(at)
+    }
+    return { nodes, length }
+}
+
+/**
+ * Cleans what snapping leaves at junctions: short pieces between two junctions fold into one
+ * junction, short loops and stubs go, and two strands between the same junctions that lie
+ * close together (both carriageways of a road) become one.
+ */
+function tidyJunctions(
+    graph: CorridorGraph,
+    position: (node: number) => [number, number],
+    isBreak: (node: number) => boolean,
+): void {
+    for (let pass = 0, changed = true; changed && pass < 6; pass++) {
+        changed = false
+        for (let node = 0; node < graph.x.length; node++) {
+            if (graph.degree(node) === 0 || !isBreak(node)) continue
+            const strands = new Map<number, { nodes: number[]; length: number }[]>()
+            for (const neighbour of [...(graph.edges[node] as Map<number, Edge>).keys()]) {
+                if (!graph.edges[node]?.has(neighbour)) continue
+                const piece = chain(graph, position, isBreak, node, neighbour)
+                const end = piece.nodes[piece.nodes.length - 1] as number
+                if (end === node) {
+                    if (piece.length < NOISE_LOOP_METERS) {
+                        for (let i = 1; i < piece.nodes.length; i++) {
+                            graph.removeEdge(piece.nodes[i - 1] as number, piece.nodes[i] as number)
+                        }
+                        changed = true
+                    }
+                } else if (piece.length < JUNCTION_METERS) {
+                    if (graph.degree(end) === 1 || isBreak(end)) {
+                        for (const other of piece.nodes.slice(1)) graph.merge(node, other)
+                        changed = true
+                    }
+                } else {
+                    strands.set(end, [...(strands.get(end) ?? []), piece])
+                }
+            }
+            // A triangle of short pieces between three junctions folds into this one.
+            const short = [...strands.entries()].filter(([, pieces]) =>
+                pieces.some((piece) => piece.length < TRIANGLE_METERS),
+            )
+            for (const [b, piecesB] of short) {
+                if (graph.degree(b) === 0) continue
+                for (const [c, piecesC] of short) {
+                    if (c <= b || graph.degree(c) === 0) continue
+                    const across = [...(graph.edges[b] as Map<number, Edge>).keys()]
+                        .map((next) => chain(graph, position, isBreak, b, next))
+                        .find(
+                            (piece) =>
+                                piece.nodes[piece.nodes.length - 1] === c &&
+                                piece.length < TRIANGLE_METERS,
+                        )
+                    if (!across) continue
+                    const isShort = (piece: { length: number }) => piece.length < TRIANGLE_METERS
+                    const inner = [
+                        ...piecesB.filter(isShort).flatMap((piece) => piece.nodes),
+                        ...piecesC.filter(isShort).flatMap((piece) => piece.nodes),
+                        ...across.nodes,
+                    ]
+                    for (const other of new Set(inner)) graph.merge(node, other)
+                    strands.delete(b)
+                    strands.delete(c)
+                    changed = true
+                }
+            }
+            for (const pieces of strands.values()) {
+                if (pieces.length < 2) continue
+                const [keep, drop] = pieces.sort((a, b) => a.length - b.length) as [
+                    (typeof pieces)[number],
+                    (typeof pieces)[number],
+                ]
+                const keepPoints = keep.nodes.map(position)
+                const dropPoints = drop.nodes.map(position)
+                if (
+                    drop.length > keep.length * 1.5 ||
+                    farthest(dropPoints, keepPoints) > PARALLEL_METERS
+                ) {
+                    continue
+                }
+                // The lines of the dropped strand move onto the kept one.
+                const moved = new Set<number>()
+                for (let i = 1; i < drop.nodes.length; i++) {
+                    const a = drop.nodes[i - 1] as number
+                    const b = drop.nodes[i] as number
+                    for (const line of graph.edges[a]?.get(b)?.lines ?? []) moved.add(line)
+                    graph.removeEdge(a, b)
+                }
+                for (let i = 1; i < keep.nodes.length; i++) {
+                    const edge = graph.edges[keep.nodes[i - 1] as number]?.get(
+                        keep.nodes[i] as number,
+                    )
+                    for (const line of moved) edge?.lines.add(line)
+                }
+                changed = true
+            }
+        }
+    }
 }
 
 // --- SERVICE ---
@@ -248,6 +461,9 @@ export function buildCorridors(inputs: CorridorInput[]): Corridor[] {
         return edges.length !== 2 || !sameLines(edges[0]!.lines, edges[1]!.lines)
     }
 
+    // Tidying looks at the road's shape only: where it forks, not where lines join or leave.
+    tidyJunctions(graph, position, (node) => graph.degree(node) !== 2)
+
     const corridors: Corridor[] = []
     const done = new Set<Edge>()
     const walk = (start: number, firstStep: number, edge: Edge) => {
@@ -265,7 +481,9 @@ export function buildCorridors(inputs: CorridorInput[]): Corridor[] {
             at = onward[0]
             nodes.push(at)
         }
-        let points = simplify(smooth(smooth(nodes.map(position))), SIMPLIFY_METERS)
+        let points = simplify(despike(nodes.map(position)), DENOISE_METERS)
+        for (let pass = 0; pass < ROUNDING_PASSES; pass++) points = round(points)
+        points = simplify(points, SIMPLIFY_METERS)
         // A fixed orientation (eastward, or northward when mostly vertical) keeps each line on
         // the same side of a corridor and the next one along the road.
         const [sx, sy] = points[0] as [number, number]

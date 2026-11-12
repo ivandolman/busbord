@@ -41,6 +41,36 @@ describe("buildCorridors", () => {
         assert.strictEqual(corridors.length, 2)
     })
 
+    it("draws a road that parts around an island as one strand", () => {
+        // The way back swings 40 m north for ~200 m, as around a stop island, and rejoins.
+        const north = 40 / 111_320
+        const back = road(0, true).map(([lat, lon]): LatLon =>
+            lon > 5.0035 && lon < 5.0065 ? [lat + north, lon] : [lat, lon],
+        )
+        const corridors = buildCorridors([{ index: 0, paths: [road(0), back] }])
+        const points = corridors.flatMap((corridor) => corridor.path)
+        // Within a few metres of the road (node positions average the points snapped to them).
+        assert.ok(points.every(([lat]) => Math.abs(lat - 52) * 111_320 < 10))
+    })
+
+    it("rounds a sharp corner but keeps the ends in place", () => {
+        const corner: LatLon[] = [
+            [52, 5],
+            [52, 5.004],
+            [52.003, 5.004],
+        ]
+        const [corridor] = buildCorridors([{ index: 0, paths: [corner] }])
+        const path = corridor?.path ?? []
+        assert.ok(path.length > 3)
+        assert.ok(!path.some(([lat, lon]) => lat === 52 && lon === 5.004))
+        const meters = (a: LatLon | undefined, b: LatLon) =>
+            a ? Math.hypot((a[0] - b[0]) * 111_320, (a[1] - b[1]) * 68_500) : Infinity
+        const [first, last] = [path[0], path[path.length - 1]]
+        const nearStart = (p: LatLon | undefined) => meters(p, [52, 5]) < 15
+        const nearEnd = (p: LatLon | undefined) => meters(p, [52.003, 5.004]) < 15
+        assert.ok((nearStart(first) && nearEnd(last)) || (nearStart(last) && nearEnd(first)))
+    })
+
     it("splits a corridor where a line turns off", () => {
         const branch: LatLon[] = [
             [52, 5.005],
