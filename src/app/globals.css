@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/* Tokens from the Figma design ("Bestemmingsbord" variables and text styles). Light only. */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-tekst: #111418;
+  --color-tekst-zacht: #5b6470;
+  --color-achtergrond: #ffffff;
+  --color-oppervlak: #f2f4f7;
+  --color-rand: #e6e8ec;
+  --color-donker: #1b2230;
+  --color-op-donker: #ffffff;
+  --color-accent: #1f5bd8;
+  --color-accent-zacht: #eef3ff;
+  --color-lopen: #2f6fed;
+  --color-bestemming: #e5484d;
+  --color-succes: #1a7f37;
+  --color-waarschuwing: #8a5200;
+  --color-waarschuwing-bg: #fff4e0;
+  --color-waarschuwing-op-donker: #ffc66b;
+  --color-kaart-basis: #ecedef;
+  --color-waarschuwing-rand: #f0c36d;
+  --color-fout: #c9372c;
+
+  --text-kop-xl: 24px;
+  --text-kop-xl--line-height: 30px;
+  --text-kop-xl--font-weight: 700;
+  --text-kop-l: 20px;
+  --text-kop-l--line-height: 26px;
+  --text-kop-l--font-weight: 700;
+  --text-kop-m: 17px;
+  --text-kop-m--line-height: 22px;
+  --text-kop-m--font-weight: 600;
+  --text-body-m: 15px;
+  --text-body-m--line-height: 20px;
+  --text-body-s: 13px;
+  --text-body-s--line-height: 17px;
+  --text-label-xs: 12px;
+  --text-label-xs--line-height: 16px;
+  --text-label-xs--font-weight: 700;
+  --text-label-xs--letter-spacing: 1.2px;
+  --text-badge-m: 16px;
+  --text-badge-m--line-height: 20px;
+  --text-badge-m--font-weight: 700;
+  --text-badge-l: 24px;
+  --text-badge-l--line-height: 28px;
+  --text-badge-l--font-weight: 700;
+  --text-cijfer-l: 28px;
+  --text-cijfer-l--line-height: 32px;
+  --text-cijfer-l--font-weight: 900;
+  --text-cijfer-m: 17px;
+  --text-cijfer-m--line-height: 22px;
+  --text-cijfer-m--font-weight: 700;
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* Mute the base map so the lines stand out. */
+.network-tiles {
+  filter: grayscale(0.7) brightness(1.04) contrast(0.9);
+}
+
+/* Leaflet popups as the design's cards (the stop card on a wide screen). */
+.leaflet-popup.card-popup .leaflet-popup-content-wrapper {
+  border-radius: 20px;
+  padding: 0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.22);
+}
+.leaflet-popup.card-popup .leaflet-popup-content {
+  margin: 0;
+  width: auto !important;
+  font: inherit;
+}
+.leaflet-popup.card-popup .leaflet-popup-close-button {
+  display: none;
+}
+.leaflet-container {
+  font-family: var(--font-sans);
+  background: var(--color-kaart-basis);
+}
+
+/* Phone layout: the search bar covers the top of the map (see fitPadding in NetworkMap). */
+:root {
+  --map-top: 0px;
+  --sheet-h: 0px;
+}
+@media (max-width: 1023px) {
+  :root {
+    --map-top: calc(4.5rem + env(safe-area-inset-top));
+  }
+  /* Attribution and other bottom controls stay above the bottom sheet. */
+  .leaflet-bottom {
+    bottom: min(var(--sheet-h), 55dvh);
+    transition: bottom 0.2s;
+  }
+}
+
+/* "Kaartlabel" in the design: labels on the map (walking area, where to get on and off). */
+.map-label {
+  width: max-content;
+  transform: translate(-50%, -50%);
+  border-radius: 10px;
+  padding: 5px 9px;
+  font: 600 13px/17px var(--font-sans);
+  color: #fff;
+  white-space: nowrap;
+}
+.leaflet-tooltip.map-label {
+  transform: none;
+  border: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+.leaflet-tooltip.map-label::before {
+  display: none;
+}
+.map-label-walk {
+  background: var(--color-lopen);
+}
+.map-label-board,
+.leaflet-tooltip.map-label-board {
+  background: var(--color-donker);
+  color: #fff;
+}
+.map-label-alight,
+.leaflet-tooltip.map-label-alight {
+  background: var(--color-bestemming);
+  color: #fff;
+}
