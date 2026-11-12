@@ -8,7 +8,6 @@ import {
     useRef,
     useState,
     type KeyboardEvent,
-    type PointerEvent,
     type ReactNode,
 } from "react"
 
@@ -16,6 +15,7 @@ import { cva } from "class-variance-authority"
 
 import { useFixedViewport, type FixedViewport } from "@/hooks/use-fixed-viewport"
 import { useMediaQuery } from "@/hooks/use-media-query"
+import { useSheetDrag } from "@/hooks/use-sheet-drag"
 import { cn } from "@/lib/utils"
 
 // --- CONSTANTS ---
@@ -37,12 +37,6 @@ const MIN_VISIBLE_PX = 76
 /** Room kept above the fully open sheet, below the status bar or notch. */
 const FULL_GAP_PX = 8
 const ORDER: SheetSnap[] = ["min", "peek", "half", "full"]
-/** A drag shorter than this is a tap on the handle. */
-const TAP_PIXELS = 6
-/** Faster than this (px per ms) is a flick: on to the next snap that way, wherever it was let go. */
-const FLICK_SPEED = 0.45
-/** A sheet that can be dismissed closes when let go this far below its lowest snap. */
-const DISMISS_PIXELS = 48
 /** How long the slide takes (see sheetVariants); after this a hidden sheet counts as gone. */
 const MOTION_MS = 420
 /** Below the screen, shadow included. */
@@ -116,19 +110,6 @@ function visiblePxOf(which: SheetSnap, viewport: FixedViewport, peek: number): n
     )
 }
 
-/** Past the ends a drag gives way slowly, as if on a rubber band. */
-function rubberBand(next: number, top: number, bottom: number): number {
-    if (next < top) return top - Math.sqrt(top - next) * 2
-    if (next > bottom) return bottom + Math.sqrt(next - bottom) * 2
-    return next
-}
-
-/** Pointer speed in px per ms over the recent trail, positive downwards. */
-function speedOf(trail: { y: number; t: number }[], y: number, t: number): number {
-    const first = trail[0]
-    return first && t > first.t ? (y - first.y) / (t - first.t) : 0
-}
-
 /** The sheet that last published --sheet-h, so a sheet leaving later does not reset another's. */
 let publisher: symbol | null = null
 
@@ -155,10 +136,6 @@ export function Sheet({
 }: SheetProps) {
     const phone = useMediaQuery(PHONE_QUERY)
     const { probe, viewport } = useFixedViewport()
-    const [drag, setDrag] = useState<number | null>(null)
-    const start = useRef<{ y: number; offset: number } | null>(null)
-    /** Recent pointer positions, for the speed of the drag when it is let go. */
-    const trail = useRef<{ y: number; t: number }[]>([])
     const scroller = useRef<HTMLDivElement>(null)
     const [entered, setEntered] = useState(!enter)
     const [id] = useState(() => Symbol("sheet"))
@@ -167,9 +144,22 @@ export function Sheet({
     const sheetHeight = sheetHeightOf(viewport)
     const outOfView = sheetHeight + OUT_OF_VIEW_EXTRA_PX
     const offsetOf = (which: SheetSnap) => sheetHeight - visiblePxOf(which, viewport, peek)
+    const measured = phone && height > 0
+    const { drag, handleProps } = useSheetDrag({
+        order: ORDER,
+        snap,
+        offsetOf,
+        lowest: onDismiss ? outOfView : offsetOf("min"),
+        height,
+        scroller,
+        enabled: measured && visible,
+        onSnapChange,
+        onTap: () =>
+            onSnapChange(snap === "full" ? "peek" : (ORDER[ORDER.indexOf(snap) + 1] ?? "full")),
+        onDismiss,
+    })
     const offset = visible && entered ? (drag ?? offsetOf(snap)) : outOfView
     const shown = Math.max(0, sheetHeight - offset)
-    const measured = phone && height > 0
     const visibleNow = measured ? Math.round(visiblePxOf(snap, viewport, peek)) : null
 
     // Slide in: one frame below the screen, then to the snap.
@@ -215,62 +205,6 @@ export function Sheet({
         scroller.current?.scrollTo({ top: 0 })
     }, [label])
 
-    const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-        start.current = { y: event.clientY, offset: offsetOf(snap) }
-        trail.current = [{ y: event.clientY, t: event.timeStamp }]
-        event.currentTarget.setPointerCapture(event.pointerId)
-    }
-    const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
-        if (!start.current) return
-        trail.current = [
-            ...trail.current.filter((point) => event.timeStamp - point.t < 100),
-            { y: event.clientY, t: event.timeStamp },
-        ]
-        const next = start.current.offset + event.clientY - start.current.y
-        setDrag(rubberBand(next, 0, onDismiss ? outOfView : offsetOf("min")))
-    }
-    const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
-        const from = start.current
-        start.current = null
-        setDrag(null)
-        if (!from) return
-        const moved = event.clientY - from.y
-        if (Math.abs(moved) < TAP_PIXELS) {
-            onSnapChange(snap === "full" ? "peek" : (ORDER[ORDER.indexOf(snap) + 1] ?? "full"))
-            return
-        }
-        const at = from.offset + moved
-        const speed = speedOf(trail.current, event.clientY, event.timeStamp)
-        const lowest = offsetOf("min")
-        if (
-            onDismiss &&
-            (at > lowest + DISMISS_PIXELS || (speed > FLICK_SPEED && at >= lowest - 1))
-        ) {
-            onDismiss()
-            return
-        }
-        if (Math.abs(speed) > FLICK_SPEED) {
-            // A flick goes to the next snap in its direction from where the sheet is now.
-            const ahead = ORDER.filter((which) =>
-                speed > 0 ? offsetOf(which) > at + 1 : offsetOf(which) < at - 1,
-            )
-            const next = speed > 0 ? ahead.at(-1) : ahead[0]
-            if (next) {
-                onSnapChange(next)
-                return
-            }
-        }
-        // The snap nearest to where the sheet was let go, with a nudge in the direction of the drag.
-        const target = at - Math.sign(moved) * height * 0.06
-        const nearest = ORDER.reduce((best, which) =>
-            Math.abs(offsetOf(which) - target) < Math.abs(offsetOf(best) - target) ? which : best,
-        )
-        onSnapChange(nearest)
-    }
-    const onPointerCancel = () => {
-        start.current = null
-        setDrag(null)
-    }
     const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         if (event.key === "Enter" || event.key === " ") {
             event.preventDefault()
@@ -306,10 +240,7 @@ export function Sheet({
                     role="button"
                     tabIndex={0}
                     aria-label={HANDLE_LABEL[snap]}
-                    onPointerDown={onPointerDown}
-                    onPointerMove={onPointerMove}
-                    onPointerUp={onPointerUp}
-                    onPointerCancel={onPointerCancel}
+                    {...handleProps}
                     onKeyDown={onKeyDown}
                     className="flex shrink-0 cursor-grab touch-none justify-center pt-2.5 pb-2 active:cursor-grabbing lg:hidden"
                 >
