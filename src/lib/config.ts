@@ -4,7 +4,7 @@ import { z } from "zod"
 
 // --- CONSTANTS ---
 
-const DEFAULT_BBOX: BoundingBox = { minLat: 51.9, minLon: 4.75, maxLat: 52.32, maxLon: 5.65 }
+const DEFAULT_BBOX: BoundingBox = { minLat: 51.9, minLon: 4.6, maxLat: 52.32, maxLon: 5.65 }
 
 const DEFAULT_OSM_EXTRACTS = ["utrecht", "zuid-holland", "noord-holland", "gelderland", "flevoland"]
     .map(
