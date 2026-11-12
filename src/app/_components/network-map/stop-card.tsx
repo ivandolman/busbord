@@ -5,6 +5,7 @@
 import { cva } from "class-variance-authority"
 
 import { Icon } from "@/components/ui/icon"
+import { SkeletonRows } from "@/components/ui/skeleton-rows"
 import type { StopBoard } from "@/features/board/board.types"
 import { formatClock } from "@/features/board/format"
 
@@ -125,7 +126,7 @@ export default function StopCard({
             {failed && !board && (
                 <p className="text-body-s text-muted">Vertrektijden konden niet laden.</p>
             )}
-            {!failed && !board && <p className="text-body-s text-muted">Vertrektijden laden…</p>}
+            {!failed && !board && <SkeletonRows label="Vertrektijden laden…" rows={5} />}
             {board && board.destination && (
                 <p className={directSummaryVariants({ reach: direct > 0 ? "direct" : "none" })}>
                     {direct > 0

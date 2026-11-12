@@ -4,6 +4,7 @@ import BoardView from "@/app/_components/board-view/board-view"
 import type { ShowRoute } from "@/app/_components/board-view/route-button"
 import SavedRouteList from "@/app/_components/saved-routes/saved-route-list"
 import { Icon } from "@/components/ui/icon"
+import { SkeletonRows } from "@/components/ui/skeleton-rows"
 import type { Board } from "@/features/board/board.types"
 import { withoutPast } from "@/features/board/build-board"
 import { formatClock } from "@/features/board/format"
@@ -80,7 +81,7 @@ export default function BoardPanel({
                 </p>
             )}
             {status.status === "loading" && !board && (
-                <p className="text-body-s text-muted">Vertrektijden ophalen…</p>
+                <SkeletonRows label="Vertrektijden ophalen…" withCard />
             )}
             {showBoard && offline && (
                 <p className="bg-surface text-body-s flex items-start gap-2 rounded-[14px] p-3">
