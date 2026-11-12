@@ -83,8 +83,8 @@ In Coolify:
     at a time (`data/gtfs.sqlite.lock`); a second one exits straight away. ovapi limits downloads
     per address, so the import is frugal: it sends the ETag of the last imported feed and stops
     when the feed is unchanged (and the region and road network too); `--force` imports anyway.
-    On HTTP 429 or a server error it waits (the server's `Retry-After`, else 1, 4, 16, 60 min)
-    and tries again, up to 5 attempts.
+    On HTTP 429 it waits (the server's `Retry-After`, else 30 min, 2, 6, 12 h: ovapi's limit
+    lasts hours) and on a server error 1, 4, 16, 60 min, then tries again, up to 5 attempts.
 
 7. Optional, for lines along the street and real walking distances: run once from the
    container's terminal (downloads ~750 MB, temporarily needs that much disk plus memory for

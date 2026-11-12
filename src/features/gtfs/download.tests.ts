@@ -18,12 +18,21 @@ describe("parseRetryAfter", () => {
 })
 
 describe("retryDelayMs", () => {
-    it("backs off 1, 4, 16, 60 min and caps the server's hint at an hour", () => {
+    it("backs off 1, 4, 16, 60 min on errors and caps the server's hint at an hour", () => {
         assert.deepStrictEqual(
-            [1, 2, 3, 4].map((attempt) => retryDelayMs(attempt, null) / 60_000),
+            [1, 2, 3, 4].map((attempt) => retryDelayMs(attempt, null, false) / 60_000),
             [1, 4, 16, 60],
         )
-        assert.strictEqual(retryDelayMs(1, 30_000), 30_000)
-        assert.strictEqual(retryDelayMs(1, 5 * 3_600_000), 3_600_000)
+        assert.strictEqual(retryDelayMs(1, 30_000, false), 30_000)
+        assert.strictEqual(retryDelayMs(1, 5 * 3_600_000, false), 3_600_000)
+    })
+
+    it("backs off 30 min, 2, 6, 12 h on HTTP 429 and caps the server's hint at 12 h", () => {
+        assert.deepStrictEqual(
+            [1, 2, 3, 4].map((attempt) => retryDelayMs(attempt, null, true) / 60_000),
+            [30, 120, 360, 720],
+        )
+        assert.strictEqual(retryDelayMs(1, 30_000, true), 30_000)
+        assert.strictEqual(retryDelayMs(1, 24 * 3_600_000, true), 12 * 3_600_000)
     })
 })

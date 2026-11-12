@@ -26,8 +26,12 @@ import { FeedStateSchema, type FeedState } from "./feed-state.schema"
 // --- CONSTANTS ---
 
 const MINUTE = 60_000
+const HOUR = 60 * MINUTE
 const MAX_ATTEMPTS = 5
-const MAX_WAIT_MS = 60 * MINUTE
+/** ovapi sends 429 without Retry-After and its limit lasts hours, so retrying within minutes only keeps it active. */
+const RATE_LIMIT_DELAYS_MS = [30 * MINUTE, 2 * HOUR, 6 * HOUR, 12 * HOUR]
+const MAX_RATE_LIMIT_WAIT_MS = 12 * HOUR
+const MAX_ERROR_WAIT_MS = HOUR
 
 // --- INTERFACES ---
 
@@ -73,10 +77,22 @@ export function parseRetryAfter(header: string | null, now = Date.now()): number
     return Number.isNaN(date) ? null : Math.max(0, date - now)
 }
 
-/** Wait before retry number `attempt` (1 = first retry): the server's hint, else 1, 4, 16, 60 min. */
-export function retryDelayMs(attempt: number, retryAfterMs: number | null): number {
-    const fallback = MINUTE * 4 ** (attempt - 1)
-    return Math.min(retryAfterMs ?? fallback, MAX_WAIT_MS)
+/**
+ * Wait before retry number `attempt` (1 = first retry): the server's hint, else on HTTP 429
+ * 30 min, 2, 6, 12 h and on other errors 1, 4, 16, 60 min.
+ */
+export function retryDelayMs(
+    attempt: number,
+    retryAfterMs: number | null,
+    rateLimited: boolean,
+): number {
+    if (rateLimited) {
+        const fallback =
+            RATE_LIMIT_DELAYS_MS[Math.min(attempt, RATE_LIMIT_DELAYS_MS.length) - 1] ??
+            MAX_RATE_LIMIT_WAIT_MS
+        return Math.min(retryAfterMs ?? fallback, MAX_RATE_LIMIT_WAIT_MS)
+    }
+    return Math.min(retryAfterMs ?? MINUTE * 4 ** (attempt - 1), MAX_ERROR_WAIT_MS)
 }
 
 export async function downloadFeed(
@@ -115,10 +131,13 @@ export async function downloadFeed(
         const delay = retryDelayMs(
             attempt,
             parseRetryAfter(response?.headers.get("retry-after") ?? null),
+            response?.status === 429,
         )
         await response?.body?.cancel()
+        const minutes = Math.ceil(delay / MINUTE)
+        const waitText = minutes < 120 ? `${minutes} min` : `${(minutes / 60).toFixed(0)} h`
         log(
-            `  ${problem}; trying again in ${Math.ceil(delay / MINUTE)} min (attempt ${attempt + 1} of ${MAX_ATTEMPTS}).`,
+            `  ${problem}; trying again in ${waitText} (attempt ${attempt + 1} of ${MAX_ATTEMPTS}).`,
         )
         await sleep(delay)
     }
