@@ -24,6 +24,9 @@ import { STOP_STYLE, stopRadius, widenTouchTarget } from "./stop-dots"
 /** Dark casing under ridden stretches ("Rand lijn" in the design). */
 const CASING = "#1b2230"
 
+/** How long the line search must stand still before the map fits to the lines found. */
+const FIT_DELAY_MS = 300
+
 /** Below this width the app is a phone layout: map full screen under a bottom sheet. */
 const PHONE_QUERY = "(max-width: 1023px)"
 
@@ -264,7 +267,15 @@ export function useNetworkLayers({
             const points = network.corridors
                 .filter((corridor) => corridor.lines.some((index) => focus.indexes.has(index)))
                 .flatMap((corridor) => corridor.path)
-            if (points.length > 0) map.fitBounds(L.latLngBounds(points), fitPadding(20))
+            if (points.length > 0) {
+                // Typing "28" searches "2" first. Fit once the query settles: a fit started
+                // during the previous fit's zoom animation is dropped by Leaflet.
+                const timer = window.setTimeout(
+                    () => map.fitBounds(L.latLngBounds(points), fitPadding(20)),
+                    FIT_DELAY_MS,
+                )
+                return () => window.clearTimeout(timer)
+            }
         }
     }, [map, network, reachable, query, matchingLines, focus])
 
