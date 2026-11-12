@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // A self-contained server in .next/standalone, for the Docker image (Dockerfile, Coolify).
+  output: "standalone",
   async headers() {
     return [
       {

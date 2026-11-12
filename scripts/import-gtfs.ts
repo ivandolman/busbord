@@ -1,4 +1,4 @@
-import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync, statSync } from "node:fs";
+import { closeSync, createWriteStream, existsSync, mkdirSync, openSync, renameSync, rmSync, statSync, utimesSync } from "node:fs";
 import { dirname } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -40,6 +40,36 @@ async function download(url: string, target: string): Promise<void> {
   }
   console.log(`  ${(statSync(target).size / 1e6).toFixed(0)} MB`);
 }
+
+/**
+ * One import at a time (the container starts one on boot, a scheduled task may start another).
+ * A running import touches its lock every minute; a lock left untouched for longer belongs to
+ * an import that was killed (for example with its container).
+ */
+const lockPath = `${config.dbPath}.lock`;
+const STALE_LOCK_MS = 10 * 60_000;
+mkdirSync(dirname(lockPath), { recursive: true });
+try {
+  closeSync(openSync(lockPath, "wx"));
+} catch {
+  if (Date.now() - statSync(lockPath).mtimeMs < STALE_LOCK_MS) {
+    console.log(`Another import is running (${lockPath}); not starting a second one.`);
+    process.exit(0);
+  }
+  console.log(`Removing a stale lock (${lockPath}).`);
+}
+const heartbeat = setInterval(() => {
+  const now = new Date();
+  try {
+    utimesSync(lockPath, now, now);
+  } catch {
+    // Removed by hand: carry on.
+  }
+}, 60_000);
+heartbeat.unref();
+const releaseLock = () => rmSync(lockPath, { force: true });
+process.on("exit", releaseLock);
+for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => process.exit(1));
 
 const downloaded = values.file === undefined;
 const zipPath = values.file ?? "data/gtfs-nl.zip";

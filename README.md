@@ -48,6 +48,59 @@ swapped in atomically, so the app can keep running during an import.
 Requires Node.js 22.13 or newer (uses the built-in `node:sqlite`, so there is no native
 module to compile; Node prints an "experimental" warning for it).
 
+## Deploy (Coolify or Docker)
+
+The repository has a `Dockerfile`: a small Node 22 image with the Next.js standalone server
+and the import scripts bundled to plain JavaScript (`pnpm build:scripts`). Everything the app
+writes (timetable, road network, saved routes) lives in `/app/data`, so that directory needs
+a persistent volume; without one every redeploy loses the saved routes and imports again.
+
+In Coolify:
+
+1. **New resource → Public/Private Repository**, this repository, branch `main`,
+   build pack **Dockerfile**. Port **3000**.
+2. **Persistent storage**: add a volume with destination path `/app/data`.
+3. **Environment variables**: `AUTH_PASSWORD` (required; without it the app answers 503) and
+   preferably `AUTH_SECRET` (a long random string, e.g. `openssl rand -base64 48`). Other
+   settings from `.env.example` are optional. `NODE_ENV`, `PORT` and `HOSTNAME` are set by
+   the image.
+4. **Domain**: set one with `https://`; Coolify's proxy then provides the certificate and sends
+   `X-Forwarded-Proto`, so the session cookie is `Secure`.
+5. **Deploy.** On the first start there is no timetable yet: the container imports the national
+   feed in the background (download of a few hundred MB, then the import; the board says
+   "De dienstregeling is nog niet geïmporteerd" until it is done). Follow it in the logs.
+   Give the server enough memory and disk for that; the real import has not been measured yet.
+   To try it out first, set `GTFS_IMPORT_ON_START=demo` (invented timetable,
+   with `GTFS_RT_ENABLED=false`).
+6. **Scheduled task** to keep the timetable current, e.g. daily at 04:30
+   (`30 4 * * *`), command:
+
+   ```
+   node scripts/import-gtfs.mjs
+   ```
+
+   The new database is swapped in atomically while the app keeps running. Only one import runs
+   at a time (`data/gtfs.sqlite.lock`); a second one exits straight away.
+7. Optional, for lines along the street and real walking distances: run once from the
+   container's terminal (downloads ~750 MB, temporarily needs that much disk plus memory for
+   the road graph), then import again:
+
+   ```
+   node scripts/import-roads.mjs && node scripts/import-gtfs.mjs
+   ```
+
+The container has a healthcheck on `/api/health` (public; it only says whether the server
+runs and whether a timetable is present). Coolify's proxy sets `X-Forwarded-For`, which the
+login limiter uses.
+
+Plain Docker works the same way:
+
+```bash
+docker build -t bestemmingsbord .
+docker run -d -p 3000:3000 -v bestemmingsbord-data:/app/data \
+  -e AUTH_PASSWORD=… -e AUTH_SECRET=… bestemmingsbord
+```
+
 ## Layout
 
 The map fills the screen. On a phone the board sits in a bottom sheet over it (drag or tap the
@@ -160,6 +213,7 @@ design.
 
 ```
 scripts/            import-gtfs.ts, import-roads.ts, make-demo-feed.ts
+Dockerfile          production image; docker-entrypoint.sh imports the timetable on first start
 src/lib/gtfs/       streaming CSV + zip reader, importer, schema, demo feed
 src/lib/board/      repository (SQL), build-board (pure logic), realtime, service
 src/lib/network/    line patterns and shapes for the map
@@ -171,7 +225,7 @@ src/app/api/        /api/stops?q=   /api/board?from=&to=&walk=&tie=&trains=
                     /api/walk-route?from=@lat,lon&to=@lat,lon
                     (walking settings travel as &tie=&maxWalk=, else the stored ones)
                     /api/routes (GET, POST, DELETE ?id=)   /api/settings (GET, PUT)
-                    /api/login (POST form)   /api/logout (POST)
+                    /api/login (POST form)   /api/logout (POST)   /api/health
 src/proxy.ts        login check on every request (src/lib/auth.ts)
 src/components/     StopPicker, BoardView, BoardApp, NetworkMap (Leaflet)
 tests/              unit tests + an end-to-end test on the demo feed

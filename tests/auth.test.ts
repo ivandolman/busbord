@@ -58,6 +58,7 @@ describe("auth", () => {
 
   it("keeps data behind the login", () => {
     expect(isPublicPath("/login")).toBe(true);
+    expect(isPublicPath("/api/health")).toBe(true);
     expect(isPublicPath("/_next/static/chunk.js")).toBe(true);
     for (const path of ["/", "/api/routes", "/api/board", "/api/settings", "/loginx"]) expect(isPublicPath(path)).toBe(false);
   });

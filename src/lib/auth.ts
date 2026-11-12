@@ -88,6 +88,7 @@ export function isPublicPath(pathname: string): boolean {
     pathname === "/login" ||
     pathname === "/api/login" ||
     pathname === "/api/logout" ||
+    pathname === "/api/health" ||
     pathname === "/manifest.webmanifest" ||
     pathname === "/icon.svg" ||
     pathname === "/favicon.ico" ||
