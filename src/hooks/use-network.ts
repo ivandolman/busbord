@@ -31,6 +31,7 @@ const NetworkSchema = z.object({
             name: z.string(),
             mode: ModeSchema,
             color: z.string().nullable(),
+            trips: z.number(),
         }),
     ),
     corridors: z.array(

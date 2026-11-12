@@ -70,11 +70,12 @@ export function useNetworkLayers({
 }: UseNetworkLayersOptions): RefObject<NetworkLayers> {
     const layersRef = useRef<NetworkLayers>({ lines: [], segments: [], stops: [] })
     const groupsRef = useRef<LayerGroups | null>(null)
-    const stripesRef = useRef<{ stripes: Stripe[]; emphasized: boolean; key: string }>({
-        stripes: [],
-        emphasized: false,
-        key: "",
-    })
+    const stripesRef = useRef<{
+        stripes: Stripe[]
+        key: string
+        network: Network | null
+        visible: Set<number> | null
+    }>({ stripes: [], key: "", network: null, visible: null })
 
     // Layers are built once per network; their click handlers read the latest props.
     const currentPickTarget = useEffectEvent(() => pickTarget)
@@ -83,6 +84,27 @@ export function useNetworkLayers({
     const pick = useEffectEvent((key: PlaceKey, place: StopOption) => onPick(key, place))
     const openStop = useEffectEvent((stop: OpenStop) => onOpenStop(stop))
     const showLine = useEffectEvent((line: string) => onShowLine(line))
+    /** Draws the lines in `visible` (all when null); one entry per line for hit-testing. */
+    const drawLines = useEffectEvent(
+        (
+            map: L.Map,
+            network: Network,
+            group: L.LayerGroup,
+            visible: Set<number> | null,
+        ): DrawnLine[] => {
+            const stripes = drawStripes(map, network, group, visible, (lines, event) =>
+                openLinesPopup(map, event, lines[0] as NetworkLine, layersRef.current, (chosen) => {
+                    showLine(chosen.line)
+                    map.closePopup()
+                }),
+            )
+            const key = visible === null ? "all" : [...visible].sort((a, b) => a - b).join(",")
+            stripesRef.current = { stripes, key, network, visible }
+            // The canvas draws in the order layers arrive: put the stops back on top.
+            for (const { layer } of layersRef.current.stops) layer.bringToFront()
+            return stripes.flatMap(({ lines, layer }) => lines.map((line) => ({ line, layer })))
+        },
+    )
 
     useEffect(() => {
         if (!map) return
@@ -93,15 +115,29 @@ export function useNetworkLayers({
         }
         groupsRef.current = groups
         const onZoom = () => {
-            const { stripes, emphasized } = stripesRef.current
-            placeStripes(map, stripes, emphasized)
+            placeStripes(map, stripesRef.current.stripes)
             for (const circle of layersRef.current.stops) {
                 circle.layer.setRadius(stopRadius(circle.look, map.getZoom()))
             }
         }
         map.on("zoomend", onZoom)
+        // The canvas holds plain colours: draw again when the theme changes.
+        const onTheme = () => {
+            const { network, visible } = stripesRef.current
+            if (!network) return
+            layersRef.current = {
+                ...layersRef.current,
+                lines: drawLines(map, network, groups.lines, visible),
+            }
+        }
+        const scheme = window.matchMedia("(prefers-color-scheme: dark)")
+        scheme.addEventListener("change", onTheme)
+        const themeObserver = new MutationObserver(onTheme)
+        themeObserver.observe(document.documentElement, { attributeFilter: ["data-theme"] })
         return () => {
             map.off("zoomend", onZoom)
+            scheme.removeEventListener("change", onTheme)
+            themeObserver.disconnect()
             for (const group of Object.values(groups)) group.remove()
             groupsRef.current = null
         }
@@ -114,14 +150,7 @@ export function useNetworkLayers({
         groups.lines.clearLayers()
         groups.stops.clearLayers()
 
-        const stripes = drawStripes(map, network, groups.lines, null, false, (line, event) =>
-            openLinesPopup(map, event, line, layersRef.current, (chosen) => {
-                showLine(chosen.line)
-                map.closePopup()
-            }),
-        )
-        stripesRef.current = { stripes, emphasized: false, key: "all" }
-        const lines = stripes.map(({ line, layer }) => ({ line, layer }))
+        const lines = drawLines(map, network, groups.lines, null)
 
         const stops = network.stops.map((stop) => {
             const layer = L.circleMarker([stop.lat, stop.lon], {
@@ -207,23 +236,9 @@ export function useNetworkLayers({
         const visible = segments ? new Set<number>() : focusLines === null ? null : focus.indexes
         const key = visible === null ? "all" : [...visible].sort((a, b) => a - b).join(",")
         if (key !== stripesRef.current.key) {
-            const emphasized = focusLines !== null
-            const stripes = drawStripes(
-                map,
-                network,
-                groups.lines,
-                visible,
-                emphasized,
-                (line, event) =>
-                    openLinesPopup(map, event, line, layersRef.current, (chosen) => {
-                        showLine(chosen.line)
-                        map.closePopup()
-                    }),
-            )
-            stripesRef.current = { stripes, emphasized, key }
             layersRef.current = {
                 ...layersRef.current,
-                lines: stripes.map(({ line, layer }) => ({ line, layer })),
+                lines: drawLines(map, network, groups.lines, visible),
             }
         }
 

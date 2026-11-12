@@ -20,6 +20,8 @@ export interface LinePattern {
 
 export interface PatternRow {
     routeId: string
+    /** Trips in the feed that run this pattern. */
+    trips: number
     stopIds: string[]
     path: LatLon[] | null
     color: string | null
@@ -91,16 +93,18 @@ export function loadPatterns(db: DatabaseSync): PatternRow[] {
     if (hasTable(db, "line_patterns")) {
         const rows = db
             .prepare(
-                "SELECT route_id AS routeId, stop_ids AS stopIds, path, color FROM line_patterns",
+                "SELECT route_id AS routeId, trips, stop_ids AS stopIds, path, color FROM line_patterns",
             )
             .all() as unknown as {
             routeId: string
+            trips: number
             stopIds: string
             path: string
             color: string
         }[]
         return rows.map((row) => ({
             routeId: row.routeId,
+            trips: row.trips,
             stopIds: JSON.parse(row.stopIds) as string[],
             path: row.path ? (JSON.parse(row.path) as LatLon[]) : null,
             color: /^#[0-9a-f]{6}$/i.test(row.color) ? row.color : null,
@@ -108,6 +112,7 @@ export function loadPatterns(db: DatabaseSync): PatternRow[] {
     }
     return computeLinePatterns(db).map((pattern) => ({
         routeId: pattern.routeId,
+        trips: pattern.trips,
         stopIds: pattern.stopIds,
         path: null,
         color: null,

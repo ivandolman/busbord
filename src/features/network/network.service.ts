@@ -40,6 +40,8 @@ export interface NetworkLine {
     mode: Mode
     /** "#rrggbb" from the feed, or null to colour by mode. */
     color: string | null
+    /** Trips in the feed, all patterns together: how busy the line is, for the line widths. */
+    trips: number
 }
 
 /**
@@ -113,6 +115,7 @@ export function buildNetwork(db: DatabaseSync): Network {
             name: route.name,
             mode,
             color: null,
+            trips: 0,
         })
     }
 
@@ -124,6 +127,7 @@ export function buildNetwork(db: DatabaseSync): Network {
         const line = index === undefined ? undefined : lines[index]
         if (index === undefined || !line) continue
         if (pattern.color) line.color = pattern.color
+        line.trips += pattern.trips
 
         const coordinates: LatLon[] = []
         for (const stopId of pattern.stopIds) {
