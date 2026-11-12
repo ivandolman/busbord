@@ -91,9 +91,15 @@
   :root {
     --map-top: calc(4.5rem + env(safe-area-inset-top));
   }
+  .leaflet-left {
+    left: env(safe-area-inset-left);
+  }
+  .leaflet-right {
+    right: env(safe-area-inset-right);
+  }
   /* Attribution and other bottom controls stay above the bottom sheet. */
   .leaflet-bottom {
-    bottom: min(var(--sheet-h), 55dvh);
+    bottom: min(var(--sheet-h), calc(var(--app-h, 100dvh) * 0.55));
     transition: bottom 0.2s;
   }
 }
@@ -128,4 +134,16 @@
 .leaflet-tooltip.map-label-alight {
   background: var(--color-bestemming);
   color: #fff;
+}
+
+/*
+ * iOS zooms in on a text field under 16px when it gets focus and does not zoom back out, which
+ * leaves the map, sheet and search bar shifted. Unlayered, so it wins over the text-* utilities.
+ */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
 }

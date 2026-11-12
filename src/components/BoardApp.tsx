@@ -503,9 +503,9 @@ export function BoardApp({ loginEnabled = false }: { loginEnabled?: boolean }) {
           to={to}
           onOpen={() => open("search", "full")}
           onSwap={swap}
-          className="absolute inset-x-4 top-[max(0.75rem,env(safe-area-inset-top))] z-[1050] lg:hidden"
+          className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] right-[max(1rem,env(safe-area-inset-right))] left-[max(1rem,env(safe-area-inset-left))] z-[1050] lg:hidden"
         />
-        <div className="absolute top-[calc(var(--map-top)+0.75rem)] right-4 z-[1050] flex flex-col gap-2.5 lg:top-6 lg:right-6">
+        <div className="absolute top-[calc(var(--map-top)+0.75rem)] right-[max(1rem,env(safe-area-inset-right))] z-[1050] flex flex-col gap-2.5 lg:top-6 lg:right-6">
           <MapButton label="Kaart en instellingen" onClick={() => open("settings", "full")} pressed={panel === "settings"}>
             {icons.layers}
           </MapButton>
@@ -520,7 +520,7 @@ export function BoardApp({ loginEnabled = false }: { loginEnabled?: boolean }) {
           <button
             type="button"
             onClick={() => (setPickTarget(null), open("search", "full"))}
-            className="absolute top-[calc(var(--map-top)+0.75rem)] left-4 z-[1050] h-11 rounded-full bg-donker px-4 text-body-s font-semibold text-op-donker shadow-[0_4px_16px_rgba(0,0,0,0.16)] lg:top-6 lg:left-1/2 lg:-translate-x-1/2"
+            className="absolute top-[calc(var(--map-top)+0.75rem)] left-[max(1rem,env(safe-area-inset-left))] z-[1050] h-11 rounded-full bg-donker px-4 text-body-s font-semibold text-op-donker shadow-[0_4px_16px_rgba(0,0,0,0.16)] lg:top-6 lg:left-1/2 lg:-translate-x-1/2"
           >
             Kiezen op kaart stoppen
           </button>

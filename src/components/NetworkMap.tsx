@@ -86,7 +86,8 @@ function fitPadding(base: number): Pick<L.FitBoundsOptions, "paddingTopLeft" | "
   const top = parseFloat(style.getPropertyValue("--map-top")) || 0;
   const sheet = parseFloat(style.getPropertyValue("--sheet-h")) || 0;
   // A sheet that covers most of the screen is open on purpose; fit above its peek height then.
-  const bottom = Math.min(sheet, window.innerHeight * 0.5);
+  const viewport = parseFloat(style.getPropertyValue("--app-h")) || window.innerHeight;
+  const bottom = Math.min(sheet, viewport * 0.5);
   return { paddingTopLeft: [base, base + top], paddingBottomRight: [base, base + bottom] };
 }
 
@@ -1093,7 +1094,7 @@ export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarg
       </label>
       {legend && (
         <p
-          className={`pointer-events-none absolute bottom-[calc(min(var(--sheet-h,0px),55dvh)+0.75rem)] left-3 z-[1000] max-w-[70%] rounded-[10px] px-[9px] py-[5px] text-body-s font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.16)] lg:bottom-6 lg:left-6 ${
+          className={`pointer-events-none absolute bottom-[calc(min(var(--sheet-h,0px),var(--app-h,100dvh)*0.55)+0.75rem)] left-[max(0.75rem,env(safe-area-inset-left))] z-[1000] max-w-[70%] rounded-[10px] px-[9px] py-[5px] text-body-s font-semibold shadow-[0_4px_16px_rgba(0,0,0,0.16)] lg:bottom-6 lg:left-6 ${
             pickTarget ? "bg-donker text-op-donker" : "bg-achtergrond text-tekst"
           }`}
         >
@@ -1108,7 +1109,7 @@ export function NetworkMap({ fromId, toId, walk, walkLegs = [], onPick, pickTarg
         createPortal(
           <section
             aria-label={`Halte ${openStop.stop.name}`}
-            className="fixed inset-x-0 bottom-0 z-[1200] max-h-[78dvh] overflow-y-auto overscroll-contain rounded-t-3xl bg-achtergrond px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.16)] lg:hidden"
+            className="fixed inset-x-0 bottom-0 z-[1200] max-h-[calc(var(--app-h,100dvh)*0.78)] overflow-y-auto overscroll-contain rounded-t-3xl bg-achtergrond px-4 pb-[max(1.75rem,env(safe-area-inset-bottom))] shadow-[0_-4px_20px_rgba(0,0,0,0.16)] lg:hidden"
           >
             <div className="flex justify-center pt-2 pb-1">
               <span className="h-[5px] w-10 rounded-[3px] bg-rand" />

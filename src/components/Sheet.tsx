@@ -5,9 +5,10 @@ import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "
 /** How far the sheet is open on a phone. On a wide screen it is a side panel and always open. */
 export type SheetSnap = "peek" | "half" | "full";
 
-/** Part of the screen height each snap shows. */
+/** Part of the screen height each snap shows ("full": at most, see sheetHeight). */
 const VISIBLE: Record<SheetSnap, number> = { peek: 0.46, half: 0.72, full: 0.94 };
-const SHEET_HEIGHT = VISIBLE.full;
+/** Room kept above the fully open sheet, below the status bar or notch. */
+const FULL_GAP_PX = 8;
 const ORDER: SheetSnap[] = ["peek", "half", "full"];
 /** A drag shorter than this is a tap on the handle. */
 const TAP_PIXELS = 6;
@@ -48,29 +49,52 @@ export function Sheet({
   children: ReactNode;
 }) {
   const phone = usePhone();
-  const [height, setHeight] = useState(0);
+  /** Height of the area fixed elements are laid out in, and the notch/status bar at its top. */
+  const [viewport, setViewport] = useState({ height: 0, safeTop: 0 });
+  const probe = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<number | null>(null);
   const start = useRef<{ y: number; offset: number } | null>(null);
   const scroller = useRef<HTMLDivElement>(null);
 
+  // Measured, not window.innerHeight or dvh: on iPhone those differ from the box a fixed element
+  // gets (Safari's toolbars, home-screen app), so the sheet and its snaps would not line up.
   useEffect(() => {
-    const sync = () => setHeight(window.innerHeight);
+    const element = probe.current;
+    if (!element) return;
+    const sync = () =>
+      setViewport({ height: element.clientHeight, safeTop: parseFloat(getComputedStyle(element).paddingTop) || 0 });
     sync();
-    window.addEventListener("resize", sync);
-    return () => window.removeEventListener("resize", sync);
+    const observer = new ResizeObserver(sync);
+    observer.observe(element);
+    window.addEventListener("orientationchange", sync);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("orientationchange", sync);
+    };
   }, []);
 
-  const visible = (which: SheetSnap) => (which === "peek" ? peek : VISIBLE[which]);
-  const offsetOf = (which: SheetSnap) => height * (SHEET_HEIGHT - visible(which));
+  const { height } = viewport;
+  /** The fully open sheet stops below the notch or status bar. */
+  const sheetHeight = height - Math.max(height * (1 - VISIBLE.full), viewport.safeTop + FULL_GAP_PX);
+  const visiblePx = (which: SheetSnap) => Math.min(sheetHeight, height * (which === "peek" ? peek : VISIBLE[which]));
+  const offsetOf = (which: SheetSnap) => sheetHeight - visiblePx(which);
   const offset = drag ?? offsetOf(snap);
-  const shown = height * SHEET_HEIGHT - offset;
+  const shown = sheetHeight - offset;
+  const measured = phone && height > 0;
 
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--sheet-h", phone ? `${Math.round(height * visible(snap))}px` : "0px");
+    root.style.setProperty("--sheet-h", measured ? `${Math.round(visiblePx(snap))}px` : "0px");
+    root.style.setProperty("--app-h", measured ? `${height}px` : "100dvh");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phone, height, snap, peek]);
-  useEffect(() => () => document.documentElement.style.setProperty("--sheet-h", "0px"), []);
+  }, [measured, height, sheetHeight, snap, peek]);
+  useEffect(
+    () => () => {
+      document.documentElement.style.setProperty("--sheet-h", "0px");
+      document.documentElement.style.removeProperty("--app-h");
+    },
+    [],
+  );
 
   // A new panel starts at the top.
   useEffect(() => {
@@ -84,7 +108,7 @@ export function Sheet({
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     if (!start.current) return;
     const next = start.current.offset + event.clientY - start.current.y;
-    setDrag(Math.max(0, Math.min(height * (SHEET_HEIGHT - 0.12), next)));
+    setDrag(Math.max(0, Math.min(sheetHeight - height * 0.12, next)));
   };
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const from = start.current;
@@ -105,9 +129,11 @@ export function Sheet({
   };
 
   return (
+    <>
+    <div ref={probe} aria-hidden="true" className="pointer-events-none invisible fixed inset-0 -z-10 pt-[env(safe-area-inset-top)]" />
     <section
       aria-label={label}
-      style={phone && height > 0 ? { transform: `translateY(${offset}px)` } : undefined}
+      style={measured ? { height: sheetHeight, transform: `translateY(${offset}px)` } : undefined}
       className={`fixed inset-x-0 bottom-0 z-[1100] flex h-[94dvh] flex-col rounded-t-3xl bg-achtergrond shadow-[0_-4px_20px_rgba(0,0,0,0.16)] lg:relative lg:z-[1100] lg:h-dvh lg:w-[420px] lg:shrink-0 lg:rounded-none lg:shadow-[4px_0_20px_rgba(0,0,0,0.12)] ${
         drag === null ? "transition-transform duration-200 ease-out" : ""
       }`}
@@ -133,11 +159,12 @@ export function Sheet({
       {header && <div className="hidden shrink-0 lg:block">{header}</div>}
       <div
         ref={scroller}
-        style={phone && height > 0 ? { maxHeight: Math.max(0, shown - 18) } : undefined}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2 pb-[max(1.75rem,env(safe-area-inset-bottom))] lg:px-6 lg:pt-0 lg:pb-6"
+        style={measured ? { maxHeight: Math.max(0, shown - 18) } : undefined}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-[max(1rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] pt-2 pb-[max(1.75rem,env(safe-area-inset-bottom))] lg:px-6 lg:pt-0 lg:pb-6"
       >
         {children}
       </div>
     </section>
+    </>
   );
 }
