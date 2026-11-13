@@ -47,6 +47,8 @@ import { findTransfers } from "./transfers"
 
 // --- CONSTANTS ---
 
+/** A stop's card offers the platforms of a train station this close (bus station to tracks). */
+const STATION_METERS = 500
 /** Trains are left out unless asked for: the board is about getting around town. */
 const DEFAULT_MODES: ReadonlySet<Mode> = new Set<Mode>(["bus", "tram", "metro"])
 const ALL_MODES: ReadonlySet<Mode> = new Set<Mode>([
@@ -320,6 +322,7 @@ export async function getStopBoard(
             ...departure,
             poleId: poleOf.get(departure.poleId) ?? departure.poleId,
         })),
+        station: repository.trainStationNear(stop.area.lat, stop.area.lon, STATION_METERS),
     }
 }
 

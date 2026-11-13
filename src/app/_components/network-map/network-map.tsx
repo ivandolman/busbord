@@ -13,6 +13,7 @@ import type { StopBoard } from "@/features/board/board.types"
 import type { Network, NetworkLine } from "@/features/network/network.service"
 import { useNetwork } from "@/hooks/use-network"
 import { useSettings, walkParams } from "@/hooks/use-settings"
+import { pointId } from "@/lib/place"
 
 import { lineFocus } from "./line-focus"
 import LineSearch from "./line-search"
@@ -148,6 +149,14 @@ export default function NetworkMap({
             onPick={(key) => {
                 flight.forget()
                 onPick(key, { id: cardStop.stop.id, name: cardStop.stop.name })
+                setOpenStop(null)
+            }}
+            onPickPlatform={(station, platform) => {
+                flight.forget()
+                onPick("from", {
+                    id: pointId({ lat: platform.lat, lon: platform.lon }),
+                    name: `${station.name}, spoor ${platform.code}`,
+                })
                 setOpenStop(null)
             }}
             onClose={() => setOpenStop(null)}

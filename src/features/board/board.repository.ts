@@ -5,7 +5,7 @@ import type { DatabaseSync } from "node:sqlite"
 import { boxAround, distanceMeters, normaliseForSearch } from "@/lib/geo"
 import { serviceDayStart } from "@/lib/time"
 
-import type { Area, Candidate, Mode, StopInfo } from "./board.types"
+import type { Area, Candidate, Mode, StopInfo, TrainPlatform, TrainStation } from "./board.types"
 import { modeFromRouteType } from "./build-board"
 import { stopNameKey } from "./stop-name"
 
@@ -169,6 +169,54 @@ export class TimetableRepository {
             if (distance <= meters) result.set(stop.id, Math.round(distance))
         }
         return result
+    }
+
+    /**
+     * The platforms of the train station nearest to a point, within `meters`; null when there is
+     * none. Only platforms a train calls at: the feed also lists sub-platforms (4a, 4b) that are
+     * not always used.
+     */
+    trainStationNear(lat: number, lon: number, meters: number): TrainStation | null {
+        const { dLat, dLon } = boxAround(lat, meters)
+        const rows = this.db
+            .prepare(
+                `SELECT s.area_id AS areaId, a.name, s.platform AS code, s.lat, s.lon
+                 FROM stops s JOIN areas a ON a.area_id = s.area_id
+                 WHERE s.lat BETWEEN ? AND ? AND s.lon BETWEEN ? AND ? AND s.platform != ''
+                   AND EXISTS (
+                     SELECT 1 FROM stop_times st
+                     JOIN trips t ON t.trip_id = st.trip_id
+                     JOIN routes r ON r.route_id = t.route_id
+                     WHERE st.stop_id = s.stop_id AND (r.type = 2 OR r.type BETWEEN 100 AND 199)
+                   )`,
+            )
+            .all(lat - dLat, lat + dLat, lon - dLon, lon + dLon) as unknown as {
+            areaId: string
+            name: string
+            code: string
+            lat: number
+            lon: number
+        }[]
+        let nearest: { areaId: string; distance: number } | null = null
+        for (const row of rows) {
+            const distance = distanceMeters(lat, lon, row.lat, row.lon)
+            if (distance <= meters && (!nearest || distance < nearest.distance))
+                nearest = { areaId: row.areaId, distance }
+        }
+        if (!nearest) return null
+        const platforms = new Map<string, TrainPlatform>()
+        for (const row of rows) {
+            if (row.areaId === nearest.areaId && !platforms.has(row.code))
+                platforms.set(row.code, { code: row.code, lat: row.lat, lon: row.lon })
+        }
+        const name = rows.find((row) => row.areaId === nearest.areaId)?.name ?? ""
+        return {
+            areaId: nearest.areaId,
+            name,
+            platforms: [...platforms.values()].sort((a, b) =>
+                a.code.localeCompare(b.code, "nl", { numeric: true }),
+            ),
+        }
     }
 
     /** The busiest-named stop area closest to a point, used to give a map point a readable name. */

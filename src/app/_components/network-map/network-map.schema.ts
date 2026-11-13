@@ -78,6 +78,13 @@ export const StopBoardSchema: z.ZodType<StopBoard> = z.object({
             poleId: z.string(),
         }),
     ),
+    station: z
+        .object({
+            areaId: z.string(),
+            name: z.string(),
+            platforms: z.array(z.object({ code: z.string(), lat: z.number(), lon: z.number() })),
+        })
+        .nullable(),
 })
 
 /** See /api/next-departures: the next ride per line towards the destination, per stop area. */

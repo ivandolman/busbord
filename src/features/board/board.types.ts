@@ -172,6 +172,20 @@ export interface StopPole {
     walkSeconds: number | null
 }
 
+export interface TrainPlatform {
+    code: string
+    lat: number
+    lon: number
+}
+
+/** A train station near a stop: where a traveller arriving by train gets off. */
+export interface TrainStation {
+    areaId: string
+    name: string
+    /** Platforms trains call at, in number order ("1", "4", "4a", "5"…). */
+    platforms: TrainPlatform[]
+}
+
 export interface StopBoard {
     stop: { id: string; name: string }
     generatedAt: number
@@ -181,4 +195,6 @@ export interface StopBoard {
     /** Poles that have departures, in label order. */
     poles: StopPole[]
     departures: StopDeparture[]
+    /** The train station nearby, to start from the platform you arrive at; null when none. */
+    station: TrainStation | null
 }

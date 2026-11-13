@@ -6,11 +6,12 @@ import { cva } from "class-variance-authority"
 
 import { Icon } from "@/components/ui/icon"
 import { SkeletonRows } from "@/components/ui/skeleton-rows"
-import type { StopBoard } from "@/features/board/board.types"
+import type { StopBoard, TrainPlatform, TrainStation } from "@/features/board/board.types"
 import { formatClock } from "@/features/board/format"
 
 import DirectionChips from "./direction-chips"
 import type { PlaceKey } from "./network-map.types"
+import PlatformPicker from "./platform-picker"
 import PoleBadge from "./pole-badge"
 import StopDepartureItem from "./stop-departure-item"
 import { directionsOf } from "./stop-directions"
@@ -48,6 +49,8 @@ interface StopCardProps {
     now: number
     onDirection: (key: string | null) => void
     onPick: (key: PlaceKey) => void
+    /** "Kom je met de trein?": start from the platform you arrive at. */
+    onPickPlatform: (station: TrainStation, platform: TrainPlatform) => void
     onClose: () => void
 }
 
@@ -67,6 +70,7 @@ export default function StopCard({
     now,
     onDirection,
     onPick,
+    onPickPlatform,
     onClose,
 }: StopCardProps) {
     const directions = board ? directionsOf(board) : []
@@ -122,6 +126,9 @@ export default function StopCard({
                     </button>
                 ))}
             </div>
+            {board?.station && board.station.platforms.length > 0 && (
+                <PlatformPicker station={board.station} onPick={onPickPlatform} />
+            )}
             {note && <p className="text-body-s text-warning">{note}</p>}
             {failed && !board && (
                 <p className="text-body-s text-muted">Vertrektijden konden niet laden.</p>
