@@ -127,7 +127,7 @@ export function splitSharedPlatforms(origin: Endpoint, destination: Endpoint): v
 /**
  * The platforms within a walk of `limit` metres from a place, each with its walk. With a walker,
  * along streets and footpaths (a stop across the water is out, however close it looks); without
- * one, the straight line plus STRAIGHT_LINE_DETOUR.
+ * one, or when the walker reaches none at all, the straight line plus STRAIGHT_LINE_DETOUR.
  */
 function platformsWithinWalk(
     repository: TimetableRepository,
@@ -137,7 +137,7 @@ function platformsWithinWalk(
 ): Map<string, number> {
     const result = new Map<string, number>()
     if (limit <= 0) return result
-    if (!walker) {
+    const asTheCrowFlies = () => {
         for (const [id, line] of repository.stopsNear(
             from[0],
             from[1],
@@ -147,6 +147,7 @@ function platformsWithinWalk(
         }
         return result
     }
+    if (!walker) return asTheCrowFlies()
     // Walking is never shorter than the straight line: nothing beyond `limit` that way can count.
     const straight = repository.stopsNear(from[0], from[1], limit)
     const ids = [...straight.keys()]
@@ -163,5 +164,7 @@ function platformsWithinWalk(
         // Shorter than the straight line: both ends snapped onto one path. Use the line.
         result.set(id, Math.round(Math.max(walk, straight.get(id) ?? 0)))
     })
-    return result
+    // Not one stop on foot while stops are near: the paths around this place are missing from
+    // the map data (an unmapped station platform). Better an estimate than no route at all.
+    return result.size > 0 ? result : asTheCrowFlies()
 }
