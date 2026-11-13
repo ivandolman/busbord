@@ -21,10 +21,12 @@ import MapLegend from "./map-legend"
 import { sortLines } from "./map-lines"
 import type { Reachable } from "./network-map.schema"
 import type { AdvisedLine, OpenStop, PlaceKey, WalkLeg } from "./network-map.types"
+import { idleNightLines, reachableWithout, withoutLines } from "./night-filter"
 import StopCard from "./stop-card"
 import StopSheet from "./stop-sheet"
 import { useLeafletMap } from "./use-leaflet-map"
 import { useNetworkLayers } from "./use-network-layers"
+import { useNightLines } from "./use-night-lines"
 import { usePlaceMarkers } from "./use-place-markers"
 import { useReachable } from "./use-reachable"
 import { useStopDepartures } from "./use-stop-departures"
@@ -80,14 +82,15 @@ export default function NetworkMap({
     const { settings, loaded: settingsLoaded } = useSettings()
     // Walking settings as query parameters; a change refetches everything that depends on them.
     const walkQuery = settingsLoaded ? new URLSearchParams(walkParams(settings)).toString() : null
-    const { network, failed } = useNetwork()
+    const { network: fullNetwork, failed } = useNetwork()
+    const runningNightLines = useNightLines()
     const [lineQuery, setLineQuery] = useState("")
     /** The stop whose card is open: a popup next to it, or the bottom sheet on a phone. */
     const [openStop, setOpenStop] = useState<OpenStop | null>(null)
     const sheet = useStopSheet(openStop, onStopSheetChange)
 
     const { map, containerRef } = useLeafletMap({ mapStyle: settings.mapStyle, pickTarget, onPick })
-    const reachable = useReachable({ fromId, toId, walk, walkQuery })
+    const allReachable = useReachable({ fromId, toId, walk, walkQuery })
     const stopCard = useStopDepartures({
         map,
         openStop,
@@ -102,10 +105,29 @@ export default function NetworkMap({
     const query = lineQuery.trim().toLowerCase()
     const matchingLines = useMemo(
         () =>
-            network && query
-                ? network.lines.filter((line) => line.line.toLowerCase() === query)
+            fullNetwork && query
+                ? fullNetwork.lines.filter((line) => line.line.toLowerCase() === query)
                 : [],
-        [network, query],
+        [fullNetwork, query],
+    )
+    // Night lines only while you can catch one, unless searched for by number.
+    const idleKey = fullNetwork
+        ? [
+              ...idleNightLines(
+                  fullNetwork,
+                  runningNightLines,
+                  new Set(matchingLines.map((line) => line.id)),
+              ),
+          ].join(",")
+        : ""
+    const idle = useMemo(() => new Set(idleKey ? idleKey.split(",") : []), [idleKey])
+    const network = useMemo(
+        () => (fullNetwork ? withoutLines(fullNetwork, idle) : null),
+        [fullNetwork, idle],
+    )
+    const reachable = useMemo(
+        () => (allReachable ? reachableWithout(allReachable, idle) : null),
+        [allReachable, idle],
     )
     const focus = useMemo(
         () => (network ? lineFocus(network, query, matchingLines, reachable) : null),

@@ -18,6 +18,7 @@ import { distanceMeters } from "@/lib/geo"
 
 import { buildCorridors, compareDrawingOrder, type Corridor } from "./corridors"
 import type { ReachableQuery } from "./network.schema"
+import { runningNightLines } from "./night-lines"
 import { loadPatterns } from "./patterns"
 import { getReachable } from "./reachable"
 
@@ -28,6 +29,9 @@ const MAP_MODES: ReadonlySet<Mode> = new Set<Mode>(["bus", "tram", "metro", "fer
 
 /** Built once per database handle; a new import swaps the handle and drops the entry with it. */
 const networkJsonCache = new WeakMap<DatabaseSync, { json: string; etag: string }>()
+
+/** Running night lines per database handle, worked out at most once a minute. */
+const nightLinesCache = new WeakMap<DatabaseSync, { minute: number; routes: string[] }>()
 
 // --- INTERFACES ---
 
@@ -223,6 +227,19 @@ export const createNetworkService = ({
             networkJsonCache.set(db, entry)
         }
         return entry
+    },
+
+    /** Route ids of the night lines under way now or leaving within the hour. */
+    getRunningNightLines(): { routes: string[] } {
+        const db = database()
+        const nowMs = now().getTime()
+        const minute = Math.floor(nowMs / 60_000)
+        let entry = nightLinesCache.get(db)
+        if (entry?.minute !== minute) {
+            entry = { minute, routes: runningNightLines(new TimetableRepository(db), nowMs) }
+            nightLinesCache.set(db, entry)
+        }
+        return { routes: entry.routes }
     },
 
     getReachable(query: ReachableQuery) {

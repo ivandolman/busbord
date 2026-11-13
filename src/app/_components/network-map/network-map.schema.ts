@@ -95,3 +95,8 @@ export const NextDeparturesSchema: z.ZodType<NextDepartures> = z.object({
         z.array(z.object({ line: z.string(), mode: ModeSchema, expectedDeparture: z.number() })),
     ),
 })
+
+/** See /api/night-lines: route ids of the night lines you can still catch. */
+export const NightLinesSchema = z
+    .object({ routes: z.array(z.string()) })
+    .transform((body) => new Set(body.routes))

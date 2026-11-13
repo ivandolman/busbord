@@ -42,6 +42,7 @@ so tests inject fakes.
 | Lines drawn along streets                  | `features/roads/line-path.ts`, `features/network/patterns.ts`                               |
 | Shared corridors / side-by-side lines      | `features/network/corridors.ts`, `app/_components/network-map/bundles.ts`, `offset-path.ts` |
 | What the map highlights for a selection    | `features/network/reachable.ts`, `segments.ts`, `network-map/line-focus.ts`                 |
+| Night lines shown only while running       | `features/network/night-lines.ts`, `network-map/night-filter.ts`, `use-night-lines.ts`      |
 | Map rendering, layers, stop dots, labels   | `app/_components/network-map/use-network-layers.ts`, `stop-dots.ts`, `stop-labels.ts`       |
 | Stop card / stop sheet on the map          | `network-map/stop-card.tsx`, `stop-sheet.tsx`, `use-stop-departures.ts`                     |
 | Board UI                                   | `app/_components/board-view/*`, `board-panel.tsx`                                           |
@@ -63,21 +64,22 @@ All `runtime = "nodejs"`, `dynamic = "force-dynamic"`. Query strings are parsed 
 `parseQuery` (`lib/http.ts`); schemas live in `features/*/*.schema.ts`. Client-side responses are
 validated with `network-map/network-map.schema.ts` + `fetch-parsed.ts`.
 
-| Route                            | Purpose                                                     | Service                          |
-| -------------------------------- | ----------------------------------------------------------- | -------------------------------- |
-| `GET /api/board`                 | departures origin → destination, walks, realtime, alerts    | `boardService.getBoard`          |
-| `GET /api/departures`            | next hour from one stop (stop card)                         | `boardService.getStopBoard`      |
-| `GET /api/next-departures`       | per stop area, next ride per line towards `to` (map labels) | `boardService.getNextDepartures` |
-| `GET /api/stops`                 | stop search by name                                         | `boardService.searchStops`       |
-| `GET /api/place`                 | display name for an area id or `@lat,lon`                   | `boardService.getPlace`          |
-| `GET /api/walk-area`             | area within walking distance                                | `boardService.getWalkArea`       |
-| `GET /api/walk-route`            | walking route between two points                            | `boardService.getWalkRoute`      |
-| `GET /api/network`               | every line and stop for the map (ETag)                      | `networkService.getNetworkJson`  |
-| `GET /api/reachable`             | lines/stops highlighted for the selection                   | `networkService.getReachable`    |
-| `GET/POST/DELETE /api/routes`    | saved routes                                                | `user-data.service.ts`           |
-| `GET/PUT /api/settings`          | settings                                                    | `user-data.service.ts`           |
-| `POST /api/login`, `/api/logout` | shared-password session                                     | `lib/auth.ts`                    |
-| `GET /api/health`                | liveness + timetable present                                | —                                |
+| Route                            | Purpose                                                     | Service                               |
+| -------------------------------- | ----------------------------------------------------------- | ------------------------------------- |
+| `GET /api/board`                 | departures origin → destination, walks, realtime, alerts    | `boardService.getBoard`               |
+| `GET /api/departures`            | next hour from one stop (stop card)                         | `boardService.getStopBoard`           |
+| `GET /api/next-departures`       | per stop area, next ride per line towards `to` (map labels) | `boardService.getNextDepartures`      |
+| `GET /api/stops`                 | stop search by name                                         | `boardService.searchStops`            |
+| `GET /api/place`                 | display name for an area id or `@lat,lon`                   | `boardService.getPlace`               |
+| `GET /api/walk-area`             | area within walking distance                                | `boardService.getWalkArea`            |
+| `GET /api/walk-route`            | walking route between two points                            | `boardService.getWalkRoute`           |
+| `GET /api/network`               | every line and stop for the map (ETag)                      | `networkService.getNetworkJson`       |
+| `GET /api/reachable`             | lines/stops highlighted for the selection                   | `networkService.getReachable`         |
+| `GET /api/night-lines`           | night lines under way now or leaving within the hour        | `networkService.getRunningNightLines` |
+| `GET/POST/DELETE /api/routes`    | saved routes                                                | `user-data.service.ts`                |
+| `GET/PUT /api/settings`          | settings                                                    | `user-data.service.ts`                |
+| `POST /api/login`, `/api/logout` | shared-password session                                     | `lib/auth.ts`                         |
+| `GET /api/health`                | liveness + timetable present                                | —                                     |
 
 ## Directory map
 
@@ -103,7 +105,7 @@ src/hooks/               client state: use-board, use-network, use-settings, use
 src/features/
   board/                 board domain: repository (SQL), service, build-board (pure), group,
                          endpoint, transfers, realtime, alerts, format, departure-text, stop-name
-  network/               map network: patterns, corridors, segments, reachable, service
+  network/               map network: patterns, corridors, segments, reachable, night-lines, service
   roads/                 OSM: pbf reader, road-network (binary file), router, walking, line-path
   gtfs/                  csv, zip, download, importer, gtfs-tables (DDL), demo-feed
   saved-routes/          schema + list/schedule logic (shared server/browser)
@@ -128,4 +130,4 @@ Unit tests sit next to their source as `*.tests.ts` (`pnpm test`); `*.integratio
 run against the demo feed (`pnpm test:integration`). Covered: board (alerts, build-board,
 endpoint, group, stop-name, integration), gtfs (csv, download), network (corridors, patterns),
 roads (line-path, road-network, router), saved-routes, user-data, lib (auth, place, time),
-network-map/offset-path.
+network-map/offset-path, network night lines.

@@ -4,6 +4,7 @@ import L from "leaflet"
 
 import type { Corridor } from "@/features/network/corridors"
 import type { Network, NetworkLine } from "@/features/network/network.service"
+import { isNightLine } from "@/features/network/night-lines"
 
 import { lineColor } from "./map-lines"
 import type { AdvisedLine } from "./network-map.types"
@@ -52,7 +53,7 @@ interface StrokeGroup {
 function kindOf(line: NetworkLine): Kind {
     if (line.mode === "tram" || line.mode === "metro" || line.mode === "train") return "rail"
     if (line.mode === "ferry") return "ferry"
-    return /^N\d/i.test(line.line) ? "night" : "bus"
+    return isNightLine(line.line) ? "night" : "bus"
 }
 
 /** The map colours from the theme (see colors.css); the canvas cannot read CSS variables. */

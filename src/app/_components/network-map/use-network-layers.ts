@@ -165,6 +165,8 @@ export function useNetworkLayers({
         }
     }, [map])
 
+    const fittedRef = useRef(false)
+
     // Draw lines and stops once the network is in.
     useEffect(() => {
         const groups = groupsRef.current
@@ -202,8 +204,10 @@ export function useNetworkLayers({
 
         layersRef.current = { ...layersRef.current, lines, stops }
 
-        // Only when the network arrives; later selections move the map in the marker hook.
-        if (network.stops.length > 0 && !hasSelection()) {
+        // Only when the network first arrives (night lines coming and going redraw it too);
+        // later selections move the map in the marker hook.
+        if (network.stops.length > 0 && !fittedRef.current && !hasSelection()) {
+            fittedRef.current = true
             map.fitBounds(
                 L.latLngBounds(network.stops.map((stop) => [stop.lat, stop.lon])),
                 fitPadding(10),

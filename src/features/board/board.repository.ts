@@ -399,6 +399,24 @@ export class TimetableRepository {
         }))
     }
 
+    /**
+     * When each trip of the night lines (line number "N" + digits) runs on a service date: its
+     * first departure and last arrival, in seconds since the start of that service day.
+     */
+    nightTripSpans(serviceDate: string): { routeId: string; start: number; end: number }[] {
+        return this.db
+            .prepare(
+                `SELECT t.route_id AS routeId, MIN(st.dep) AS start, MAX(st.arr) AS end
+           FROM routes r
+           JOIN trips t ON t.route_id = r.route_id
+           JOIN service_dates sd ON sd.service_id = t.service_id AND sd.date = ?
+           JOIN stop_times st ON st.trip_id = t.trip_id
+          WHERE r.short_name GLOB 'N[0-9]*'
+          GROUP BY t.trip_id`,
+            )
+            .all(serviceDate) as unknown as { routeId: string; start: number; end: number }[]
+    }
+
     stopPositions(stopIds: string[]): Map<string, [number, number]> {
         const rows = this.db
             .prepare(
