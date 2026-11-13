@@ -25,6 +25,11 @@ const NOISE_LOOP_METERS = 60
 const PARALLEL_METERS = 60
 /** Three junctions joined by pieces this short are one junction drawn as a little triangle. */
 const TRIANGLE_METERS = 60
+/**
+ * A dead end this short off a junction, whose lines all go on along another road from there, is
+ * where a line ends just past the junction: drawn, it is a stray stub.
+ */
+const STUB_METERS = 60
 /** A sharp back-and-forth with a leg this short is snapping noise. */
 const SPIKE_METERS = 15
 /** Straightens noise before rounding; corners left after it are real bends. */
@@ -289,6 +294,20 @@ function simplify(points: [number, number][], tolerance: number): [number, numbe
     return points.filter((_, i) => keep[i] === 1)
 }
 
+/** Whether every line along the piece also leaves `junction` along another edge. */
+function linesGoOn(graph: CorridorGraph, junction: number, nodes: number[]): boolean {
+    const edges = graph.edges[junction] as Map<number, Edge>
+    const elsewhere = new Set<number>()
+    for (const [neighbour, edge] of edges) {
+        if (neighbour !== nodes[1]) for (const line of edge.lines) elsewhere.add(line)
+    }
+    for (let i = 1; i < nodes.length; i++) {
+        const edge = graph.edges[nodes[i - 1] as number]?.get(nodes[i] as number)
+        for (const line of edge?.lines ?? []) if (!elsewhere.has(line)) return false
+    }
+    return true
+}
+
 /** The chain of nodes from `start` through `next` up to the next junction, and its length. */
 function chain(
     graph: CorridorGraph,
@@ -319,7 +338,8 @@ function chain(
 
 /**
  * Cleans what snapping leaves at junctions: short pieces between two junctions fold into one
- * junction, short loops and stubs go, and two strands between the same junctions that lie
+ * junction, short loops and stubs go (also dead ends whose lines go on along another road),
+ * and two strands between the same junctions that lie
  * close together (both carriageways of a road) become one.
  */
 function tidyJunctions(
@@ -348,6 +368,16 @@ function tidyJunctions(
                         for (const other of piece.nodes.slice(1)) graph.merge(node, other)
                         changed = true
                     }
+                } else if (
+                    piece.length < STUB_METERS &&
+                    graph.degree(end) === 1 &&
+                    graph.degree(node) >= 3 &&
+                    linesGoOn(graph, node, piece.nodes)
+                ) {
+                    for (let i = 1; i < piece.nodes.length; i++) {
+                        graph.removeEdge(piece.nodes[i - 1] as number, piece.nodes[i] as number)
+                    }
+                    changed = true
                 } else {
                     strands.set(end, [...(strands.get(end) ?? []), piece])
                 }

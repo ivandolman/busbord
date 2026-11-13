@@ -85,4 +85,22 @@ describe("buildCorridors", () => {
         assert.strictEqual(shared.length, 1)
         assert.ok(corridors.some((c) => c.lines.length === 1 && c.lines[0] === 1))
     })
+
+    it("drops a short dead end past a junction when its lines go on along the road", () => {
+        // Line 1 runs along the road, then ends 45 m up a side street off its middle.
+        const up = (meters: number): LatLon => [52 + meters / 111_320, 5.005]
+        const side = [...road(0).filter(([, lon]) => lon <= 5.005), up(15), up(30), up(45)]
+        const corridors = buildCorridors([
+            { index: 0, paths: [road(0)] },
+            { index: 1, paths: [road(0), side] },
+        ])
+        assert.ok(corridors.every((corridor) => corridor.path.every(([lat]) => lat < 52.0002)))
+
+        // A line found only up that side street keeps it.
+        const own = buildCorridors([
+            { index: 0, paths: [road(0)] },
+            { index: 2, paths: [[up(0), up(15), up(30), up(45)]] },
+        ])
+        assert.ok(own.some((corridor) => corridor.lines.includes(2)))
+    })
 })

@@ -180,7 +180,8 @@ values in `src/styles/theme/colors.css`, and the base map, which has no dark ver
    Without `roads.bin` the feed's shapes are used as they are. A database imported before that table existed still works: the patterns
    are then computed on first use (~3 s) and drawn stop to stop. For drawing, all patterns
    are merged into shared corridors: points within 25 m join, so both carriageways of a road
-   and every line along it become one centre line; knots at junctions are folded away and bends rounded (`src/features/network/corridors.ts`, built
+   and every line along it become one centre line; knots at junctions and short dead ends are folded away, small loops where routing missed a
+   turn are cut (`patterns.ts`), and bends rounded (`src/features/network/corridors.ts`, built
    once per database, ~1.5 s). Without a search or selection each road is one calm stroke per
    mode in the colour of its busiest line (night buses dashed, and only while one is under way or
    leaves within the hour, unless you search for it: `/api/night-lines`), as wide as the road is busy; the stops' badges

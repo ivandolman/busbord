@@ -8,6 +8,17 @@ import type { LatLon } from "./network.service"
 
 const METERS_PER_DEGREE = 111_320
 
+/**
+ * A stretch of path counts as a detour when it is more than DETOUR_RATIO times as long as the
+ * straight line across, plus DETOUR_SLACK_METERS, and no longer than DETOUR_WINDOW_METERS. Corners
+ * and bends stay well below; a loop around a block where routing missed a turn does not.
+ */
+const DETOUR_RATIO = 2
+const DETOUR_SLACK_METERS = 50
+const DETOUR_WINDOW_METERS = 400
+/** Path points this close to one of the line's stops are never cut: the bus goes there to stop. */
+const STOP_GUARD_METERS = 40
+
 // --- INTERFACES ---
 
 /** One distinct stopping pattern of a route, with a trip that runs it (to look up its shape). */
@@ -102,13 +113,22 @@ export function loadPatterns(db: DatabaseSync): PatternRow[] {
             path: string
             color: string
         }[]
-        return rows.map((row) => ({
-            routeId: row.routeId,
-            trips: row.trips,
-            stopIds: JSON.parse(row.stopIds) as string[],
-            path: row.path ? (JSON.parse(row.path) as LatLon[]) : null,
-            color: /^#[0-9a-f]{6}$/i.test(row.color) ? row.color : null,
-        }))
+        const stops = stopPositions(db)
+        return rows.map((row) => {
+            const stopIds = JSON.parse(row.stopIds) as string[]
+            const path = row.path ? (JSON.parse(row.path) as LatLon[]) : null
+            const guarded = stopIds.flatMap((id) => {
+                const position = stops.get(id)
+                return position ? [position] : []
+            })
+            return {
+                routeId: row.routeId,
+                trips: row.trips,
+                stopIds,
+                path: path ? cutDetours(path, guarded) : null,
+                color: /^#[0-9a-f]{6}$/i.test(row.color) ? row.color : null,
+            }
+        })
     }
     return computeLinePatterns(db).map((pattern) => ({
         routeId: pattern.routeId,
@@ -153,6 +173,40 @@ export function simplifyPath(points: LatLon[], toleranceMeters: number): LatLon[
 }
 
 /**
+ * Takes short loops out of a path: where it wanders off and comes back close to where it was
+ * (routing that missed a turn and circles a block), the path goes straight across instead. On
+ * the map such loops show as dead-end stubs and triangles. Points near `stops` are kept.
+ */
+export function cutDetours(path: LatLon[], stops: LatLon[]): LatLon[] {
+    if (path.length < 3) return path
+    const cosLat = Math.cos(((path[0] as LatLon)[0] * Math.PI) / 180)
+    const distance = (a: LatLon, b: LatLon) => Math.sqrt(squaredDistance(a, b, cosLat))
+    const along = [0]
+    for (let i = 1; i < path.length; i++)
+        along.push((along[i - 1] as number) + distance(path[i - 1] as LatLon, path[i] as LatLon))
+    const guard = STOP_GUARD_METERS * STOP_GUARD_METERS
+    const pinned = path.map((point) =>
+        stops.some((stop) => squaredDistance(point, stop, cosLat) <= guard),
+    )
+
+    const result: LatLon[] = []
+    let i = 0
+    while (i < path.length) {
+        result.push(path[i] as LatLon)
+        let cutTo = -1
+        for (let j = i + 2; j < path.length; j++) {
+            const travelled = (along[j] as number) - (along[i] as number)
+            if (travelled > DETOUR_WINDOW_METERS) break
+            if (pinned[j - 1]) break
+            const across = distance(path[i] as LatLon, path[j] as LatLon)
+            if (travelled > across * DETOUR_RATIO + DETOUR_SLACK_METERS) cutTo = j
+        }
+        i = cutTo > 0 ? cutTo : i + 1
+    }
+    return result
+}
+
+/**
  * Cuts a full trip shape down to the part between the first and last stop we kept, since trips
  * that leave the region carry their whole route along.
  */
@@ -183,6 +237,15 @@ function hasTable(db: DatabaseSync, name: string): boolean {
         db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !==
         undefined
     )
+}
+
+function stopPositions(db: DatabaseSync): Map<string, LatLon> {
+    const rows = db.prepare("SELECT stop_id AS id, lat, lon FROM stops").all() as unknown as {
+        id: string
+        lat: number
+        lon: number
+    }[]
+    return new Map(rows.map((row) => [row.id, [row.lat, row.lon]]))
 }
 
 function squaredDistance(a: LatLon, b: LatLon, cosLat: number): number {
