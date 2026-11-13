@@ -13,6 +13,8 @@ interface DesktopHeaderProps {
     to: StopOption | null
     /** The saved routes show here only next to the board. */
     showSavedRoutes: boolean
+    /** Hidden while "Van en naar" is open below: one search UI at a time. */
+    showSearchBar: boolean
     onOpenSearch: () => void
     onSwap: () => void
     onClear: () => void
@@ -25,6 +27,7 @@ export default function DesktopHeader({
     from,
     to,
     showSavedRoutes,
+    showSearchBar,
     onOpenSearch,
     onSwap,
     onClear,
@@ -41,13 +44,15 @@ export default function DesktopHeader({
                 </span>
                 Busbord
             </p>
-            <SearchBar
-                from={from}
-                to={to}
-                onOpen={onOpenSearch}
-                onSwap={onSwap}
-                onClear={onClear}
-            />
+            {showSearchBar && (
+                <SearchBar
+                    from={from}
+                    to={to}
+                    onOpen={onOpenSearch}
+                    onSwap={onSwap}
+                    onClear={onClear}
+                />
+            )}
             {showSavedRoutes && (
                 <SavedRouteList
                     fromId={from?.id ?? null}
