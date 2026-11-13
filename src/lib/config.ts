@@ -38,6 +38,8 @@ const EnvSchema = z.object({
     GTFS_RT_URL: z.string().default("https://gtfs.ovapi.nl/nl/tripUpdates.pb"),
     GTFS_ALERTS_URL: z.string().default("https://gtfs.ovapi.nl/nl/alerts.pb"),
     OVAPI_USER_AGENT: z.string().default("bestemmingsbord-prototype"),
+    /** PDOK Locatieserver (Dutch address register) for address search; empty turns it off. */
+    GEOCODE_URL: z.string().default("https://api.pdok.nl/bzk/locatieserver/search/v3_1"),
 })
 
 const BoundingBoxSchema = z
@@ -79,6 +81,7 @@ export const config = {
     alertsUrl: env.GTFS_ALERTS_URL,
     alertsTtlMs: 2 * 60_000,
     userAgent: env.OVAPI_USER_AGENT,
+    geocodeUrl: env.GEOCODE_URL,
     /** The data licence forbids keeping realtime data for more than 30 minutes; we keep it far shorter. */
     realtimeTtlMs: 30_000,
     board: {

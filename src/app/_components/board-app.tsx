@@ -23,6 +23,7 @@ import { useSavedRoutes } from "@/hooks/use-saved-routes"
 import { useScheduledRoute } from "@/hooks/use-scheduled-route"
 import { useSettings, walkParams } from "@/hooks/use-settings"
 import { useShownTrip } from "@/hooks/use-shown-trip"
+import { isAreaId } from "@/lib/place"
 
 import BoardPanel from "./board-panel"
 import DesktopHeader from "./desktop-header"
@@ -69,7 +70,10 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
         walk,
         walkQuery: new URLSearchParams(walkParams(settings)).toString(),
         ready: settingsLoaded,
-        onBoard: (next) => remember(next.origin, next.destination),
+        // A map point's board name ("Bij …") is a fallback: the picked address or platform, or
+        // /api/place, names it better.
+        onBoard: (next) =>
+            remember(...[next.origin, next.destination].filter((place) => isAreaId(place.id))),
     })
 
     const [panel, setPanel] = useState<Panel>("board")

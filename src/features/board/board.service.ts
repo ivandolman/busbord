@@ -2,6 +2,7 @@
 
 import type { DatabaseSync } from "node:sqlite"
 
+import { geocodeService, type GeocodeService } from "@/features/geocode/geocode.service"
 import { getWalker, type Walker } from "@/features/roads/walking"
 import {
     maxWalkMeters as storedMaxWalkMeters,
@@ -44,6 +45,11 @@ import {
 import { shortHeadsign } from "./group"
 import { getNextDepartures } from "./next-departures"
 import { getRealtimeSource, type RealtimeSource } from "./realtime"
+import {
+    mergeSearchResults,
+    MIN_ADDRESS_QUERY_LENGTH,
+    type PlaceSuggestion,
+} from "./search-results"
 import { findTransfers } from "./transfers"
 
 // --- CONSTANTS ---
@@ -69,6 +75,8 @@ const STOP_BOARD_HORIZON_SECONDS = 60 * 60
 const STOP_BOARD_LIMIT = 80
 const NEXT_DEPARTURES_HORIZON_SECONDS = 90 * 60
 const STOP_SEARCH_LIMIT = 8
+/** A point this close to a house is named after it (a map tap, a reloaded address). */
+const ON_ADDRESS_METERS = 25
 
 /** Poles further than this from the origin get no walking time: you would not walk there. */
 const MAX_POLE_WALK_METERS = 3000
@@ -120,6 +128,8 @@ export interface BoardServiceDependencies {
     maxWalkMeters: (param: string | null) => number
     /** The `tie` query value (minutes) in seconds, or the stored setting without one. */
     walkTieSeconds: (param: string | null) => number
+    /** Addresses for the place search and for naming map points. */
+    geocoder: Pick<GeocodeService, "searchAddresses" | "addressAt">
     now: () => Date
 }
 
@@ -340,6 +350,7 @@ export const createBoardService = ({
     walker = getWalker,
     maxWalkMeters = storedMaxWalkMeters,
     walkTieSeconds = storedWalkTieSeconds,
+    geocoder = geocodeService,
     now = () => new Date(),
 }: Partial<BoardServiceDependencies> = {}) => {
     const repository = () => new TimetableRepository(database())
@@ -390,7 +401,8 @@ export const createBoardService = ({
             }),
 
         /** Display name for a stop area or map point, for selections restored from the URL. */
-        getPlace(id: string): { id: string; name: string } {
+        /** A platform, the address at a map point, or the stop area's name. */
+        async getPlace(id: string): Promise<{ id: string; name: string }> {
             const point = parsePointId(id)
             if (point) {
                 const station = repository().trainStationNear(point.lat, point.lon, STATION_METERS)
@@ -400,6 +412,8 @@ export const createBoardService = ({
                         ON_PLATFORM_METERS,
                 )
                 if (station && platform) return { id, name: platformPlace(station, platform).name }
+                const address = await geocoder.addressAt(point, ON_ADDRESS_METERS)
+                if (address) return { id, name: address.name }
             }
             const { area } = resolveEndpoint(repository(), id, { walking: false, role: "from" })
             return { id, name: area.name }
@@ -413,25 +427,16 @@ export const createBoardService = ({
             return repository().trainStationNear(center.lat, center.lon, STATION_METERS)
         },
 
-        /** Stop areas by name; "… spoor 5" also offers that platform of the stations found. */
-        searchStops(query: string): { id: string; name: string }[] {
-            const areas = (text: string) =>
-                repository().searchAreas(text, STOP_SEARCH_LIMIT, config.board.sameStopMeters)
-            const typed = parsePlatformQuery(query)
-            if (!typed) return areas(query).map(({ id, name }) => ({ id, name }))
-
-            const platforms: { id: string; name: string }[] = []
-            for (const area of areas(typed.station)) {
-                const station = repository().trainStationNear(area.lat, area.lon, STATION_METERS)
-                const platform = station?.platforms.find(
-                    (candidate) => candidate.code.toLowerCase() === typed.code,
-                )
-                if (!station || !platform) continue
-                const place = platformPlace(station, platform)
-                if (!platforms.some((known) => known.id === place.id)) platforms.push(place)
-            }
-            const rest = areas(query).map(({ id, name }) => ({ id, name }))
-            return [...platforms, ...rest].slice(0, STOP_SEARCH_LIMIT)
+        /**
+         * Stop areas by name and Dutch addresses; "… spoor 5" also offers that platform of the
+         * stations found. Addresses that do not answer in time are left out.
+         */
+        async searchStops(query: string): Promise<PlaceSuggestion[]> {
+            const addresses =
+                query.length >= MIN_ADDRESS_QUERY_LENGTH
+                    ? geocoder.searchAddresses(query)
+                    : Promise.resolve([])
+            return mergeSearchResults(query, searchStopAreas(repository(), query), await addresses)
         },
 
         /**
@@ -480,6 +485,29 @@ export const createBoardService = ({
 export const boardService = createBoardService()
 
 // --- HELPERS ---
+
+/** Stop areas by name; "… spoor 5" puts that platform of the stations found first. */
+function searchStopAreas(repository: TimetableRepository, query: string): PlaceSuggestion[] {
+    const areas = (text: string) =>
+        repository.searchAreas(text, STOP_SEARCH_LIMIT, config.board.sameStopMeters)
+    const stops = (text: string): PlaceSuggestion[] =>
+        areas(text).map(({ id, name }) => ({ id, name, kind: "stop" }))
+    const typed = parsePlatformQuery(query)
+    if (!typed) return stops(query)
+
+    const platforms: PlaceSuggestion[] = []
+    for (const area of areas(typed.station)) {
+        const station = repository.trainStationNear(area.lat, area.lon, STATION_METERS)
+        const platform = station?.platforms.find(
+            (candidate) => candidate.code.toLowerCase() === typed.code,
+        )
+        if (!station || !platform) continue
+        const place = platformPlace(station, platform)
+        if (!platforms.some((known) => known.id === place.id))
+            platforms.push({ ...place, kind: "platform" })
+    }
+    return [...platforms, ...stops(query)].slice(0, STOP_SEARCH_LIMIT)
+}
 
 /** Alerts about the lines on this board, or about the stops where you get on and off. */
 async function boardAlerts(

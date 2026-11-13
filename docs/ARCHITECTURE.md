@@ -19,6 +19,7 @@ Zod 4, Leaflet. SQLite through `node:sqlite` (`DatabaseSync`), no ORM. pnpm. Tes
 GTFS zip (ovapi) ──scripts/import-gtfs.ts──► data/gtfs.sqlite   (read-only at runtime, src/lib/db.ts)
 OSM PBF extracts ──scripts/import-roads.ts─► data/roads.bin     (walking + line geometry)
 GTFS-realtime    ──fetched per request, cached──► delays, cancellations, alerts
+PDOK Locatieserver ──fetched per search, cached──► addresses (place search, naming map points)
 browser ──/api/routes, /api/settings──► data/user.sqlite        (saved routes + settings)
 
 page.tsx → BoardApp (client) → hooks (src/hooks) → fetch /api/* → route.ts
@@ -49,12 +50,13 @@ so tests inject fakes.
 | Board UI                                   | `app/_components/board-view/*`, `board-panel.tsx`                                           |
 | Bottom sheet / side panel behaviour        | `components/ui/sheet.tsx`, `hooks/use-sheet-drag.ts`, `use-sheet-metrics.ts`                |
 | Search, stop picker, URL state             | `search-panel.tsx`, `stop-picker.tsx`, `hooks/use-route-params.ts`                          |
+| Address search, stop/address list order    | `features/geocode/geocode.service.ts`, `board/search-results.ts`, `place-option.tsx`        |
 | Saved routes, regular trips                | `features/saved-routes/*`, `app/_components/saved-routes/*`, `hooks/use-scheduled-route.ts` |
 | Settings                                   | `features/user-data/*`, `app/_components/settings/*`, `hooks/use-settings.ts`               |
 | GTFS import, DB schema                     | `features/gtfs/importer.ts`, `gtfs-tables.ts`, `download.ts`                                |
 | Login / session                            | `lib/auth.ts`, `src/proxy.ts`, `app/api/login`, `components/app/session-guard.tsx`          |
 | Offline, "Vertrek nu" notifications        | `public/sw.js`, `components/app/service-worker.tsx`, `hooks/use-leave-alert.ts`             |
-| Env config                                 | `lib/config.ts` (Zod), `.env.example`                                                       |
+| Env config (incl. `GEOCODE_URL`)           | `lib/config.ts` (Zod), `.env.example`                                                       |
 | Colours, type, tokens, dark mode           | `styles/theme/*.css`, `lib/theme.ts`, `hooks/use-theme.ts`                                  |
 
 (Paths without `src/` are under `src/`.)
@@ -70,8 +72,8 @@ validated with `network-map/network-map.schema.ts` + `fetch-parsed.ts`.
 | `GET /api/board`                 | departures origin → destination, walks, realtime, alerts    | `boardService.getBoard`               |
 | `GET /api/departures`            | next hour from one stop (stop card)                         | `boardService.getStopBoard`           |
 | `GET /api/next-departures`       | per stop area, next ride per line towards `to` (map labels) | `boardService.getNextDepartures`      |
-| `GET /api/stops`                 | stop search by name; "… spoor 5" also offers that platform  | `boardService.searchStops`            |
-| `GET /api/place`                 | display name for an area id or `@lat,lon`                   | `boardService.getPlace`               |
+| `GET /api/stops`                 | stops, "… spoor 5" platforms and addresses, typed by `kind` | `boardService.searchStops`            |
+| `GET /api/place`                 | display name for an area id or `@lat,lon` (address nearby)  | `boardService.getPlace`               |
 | `GET /api/station`               | train station near a place, with its platforms              | `boardService.getStation`             |
 | `GET /api/walk-area`             | area within walking distance                                | `boardService.getWalkArea`            |
 | `GET /api/walk-route`            | walking route between two points                            | `boardService.getWalkRoute`           |
@@ -94,7 +96,7 @@ src/app/
   manifest.ts            PWA manifest, saved routes as shortcuts
   api/*/route.ts         see table above
   _components/           app UI (client): board-app, board-panel, search-panel, search-bar,
-                         stop-picker, trip-view, trip-step, map-controls, desktop-header, …
+                         stop-picker, place-option, trip-view, trip-step, map-controls, desktop-header, …
     board-view/          board: pick-card, group-row, departure-row, transfer-list, alert-list
     network-map/         Leaflet map; use-*.ts hooks each own one layer (walk areas, walk legs,
                          stop labels, place markers, highlight, flight); pure helpers *.ts
@@ -106,8 +108,10 @@ src/hooks/               client state: use-board, use-network, use-settings, use
                          use-route-params (URL), use-sheet-*, use-locate, use-theme, …
 src/features/
   board/                 board domain: repository (SQL), service, build-board (pure), group,
-                         endpoint, transfers, realtime, alerts, format, departure-text, stop-name
+                         endpoint, transfers, realtime, alerts, format, departure-text, stop-name,
+                         search-results (place search order)
   network/               map network: patterns, corridors, segments, reachable, night-lines, service
+  geocode/               PDOK Locatieserver client: address search and address at a point
   roads/                 OSM: pbf reader, road-network (binary file), router, walking, line-path
   gtfs/                  csv, zip, download, importer, gtfs-tables (DDL), demo-feed
   saved-routes/          schema + list/schedule logic (shared server/browser)
@@ -130,6 +134,6 @@ public/                  icons/*.svg, map-styles/*.png (previews), sw.js
 
 Unit tests sit next to their source as `*.tests.ts` (`pnpm test`); `*.integration.tests.ts`
 run against the demo feed (`pnpm test:integration`). Covered: board (alerts, build-board,
-endpoint, group, stop-name, integration), gtfs (csv, download), network (corridors, patterns),
+endpoint, group, stop-name, search-results, integration), geocode, gtfs (csv, download), network (corridors, patterns),
 roads (line-path, road-network, router), saved-routes, user-data, lib (auth, place, time),
 network-map/offset-path, network night lines, train station / platform places.

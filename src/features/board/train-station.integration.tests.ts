@@ -73,7 +73,11 @@ describe("trainStationNear", () => {
 
 describe("platforms as places", () => {
     const db = timetableDb()
-    const service = createBoardService({ database: () => db, walker: () => null })
+    const service = createBoardService({
+        database: () => db,
+        walker: () => null,
+        geocoder: { searchAddresses: async () => [], addressAt: async () => null },
+    })
 
     it("finds the station near a stop area or a map point", () => {
         assert.strictEqual(service.getStation("bus")?.name, "Utrecht Centraal")
@@ -81,17 +85,23 @@ describe("platforms as places", () => {
         assert.strictEqual(service.getStation("@52.20000,5.30000"), null)
     })
 
-    it("names a point on a platform after the platform", () => {
-        assert.strictEqual(service.getPlace("@52.09010,5.11020").name, "Utrecht Centraal, spoor 5")
+    it("names a point on a platform after the platform", async () => {
+        assert.strictEqual(
+            (await service.getPlace("@52.09010,5.11020")).name,
+            "Utrecht Centraal, spoor 5",
+        )
     })
 
-    it("offers the typed platform first in the search", () => {
-        assert.deepStrictEqual(service.searchStops("utrecht spoor 12")[0], {
+    it("offers the typed platform first in the search", async () => {
+        assert.deepStrictEqual((await service.searchStops("utrecht spoor 12"))[0], {
             id: "@52.08980,5.10950",
             name: "Utrecht Centraal, spoor 12",
+            kind: "platform",
         })
         assert.ok(
-            service.searchStops("utrecht spoor 7").every((stop) => !stop.name.includes("spoor")),
+            (await service.searchStops("utrecht spoor 7")).every(
+                (stop) => !stop.name.includes("spoor"),
+            ),
         )
     })
 })

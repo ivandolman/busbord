@@ -148,6 +148,11 @@ values in `src/styles/theme/colors.css`, and the base map, which has no dark ver
    walk + ride + walk wins. Pairs within a few minutes of that count as equally quick (the
    walking estimate is rough); of those, the one with the least walking wins. The margin is a
    setting ("Minder lopen mag … langer duren", default 2 min, 0 = always the quickest).
+   An address works the same way: the search offers Dutch addresses from PDOK Locatieserver
+   (`src/features/geocode/`) next to stops, and choosing one makes it a map point. Stops are
+   listed first unless the query looks like an address (house number, postcode); each row
+   says "Halte", "Treinspoor" or "Adres". A map point within 25 m of a house is named after
+   that address, so a reloaded or shared board still shows it.
 2. **Stop pairs.** A trip is a match when it calls at an origin platform and, later in the
    same trip, at a destination platform (`src/features/board/board.repository.ts`). That is one indexed
    self-join on `stop_times`; no line list is maintained anywhere.
@@ -286,8 +291,9 @@ Not verified at first, because the environment this was built in could not reach
   Dutch government's open base map; Netherlands only) or, when chosen, tile.openstreetmap.org.
   That is fine for light use; read the OSM tile usage policy (or switch to your own tile
   source in `src/app/_components/network-map/use-leaflet-map.ts`) before going public.
-- Outbound requests go only to `GTFS_URL` / `GTFS_RT_URL` / `GTFS_ALERTS_URL` from the
-  environment, never to a URL taken from a request.
+- Outbound requests go only to `GTFS_URL` / `GTFS_RT_URL` / `GTFS_ALERTS_URL` / `GEOCODE_URL`
+  from the environment, never to a URL taken from a request. Address search sends what is
+  typed in Van/Naar (3+ characters) to PDOK from the server; `GEOCODE_URL=` turns it off.
 - Road data © OpenStreetMap contributors (ODbL), via Geofabrik extracts. Keep the map's
   attribution visible.
 - The timetable is open data (CC0). OVapi's terms for realtime data forbid storing it for

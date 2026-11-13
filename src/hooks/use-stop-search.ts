@@ -1,4 +1,4 @@
-// Stops matching what is typed (/api/stops), debounced, with the highlighted option
+// Stops, platforms and addresses matching what is typed (/api/stops), debounced, with the highlighted option
 
 import { useEffect, useState } from "react"
 
@@ -9,7 +9,14 @@ import { z } from "zod"
 const SEARCH_DEBOUNCE_MS = 200
 
 const StopsResponseSchema = z.object({
-    stops: z.array(z.object({ id: z.string(), name: z.string() })),
+    stops: z.array(
+        z.object({
+            id: z.string(),
+            name: z.string(),
+            kind: z.enum(["stop", "platform", "address"]).catch("stop"),
+            detail: z.string().optional(),
+        }),
+    ),
 })
 
 // --- INTERFACES ---

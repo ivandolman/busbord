@@ -1,4 +1,4 @@
-// GET /api/stops: stop search by name for the stop picker
+// GET /api/stops: stops, train platforms and addresses for the place picker
 
 import { NextResponse, type NextRequest } from "next/server"
 
@@ -16,7 +16,7 @@ const MIN_QUERY_LENGTH = 2
 
 // --- HANDLER ---
 
-export function GET(request: NextRequest): NextResponse {
+export async function GET(request: NextRequest): Promise<NextResponse> {
     const query = parseQuery(
         StopSearchQuerySchema,
         request.nextUrl.searchParams,
@@ -26,7 +26,7 @@ export function GET(request: NextRequest): NextResponse {
     if (query.data.q.length < MIN_QUERY_LENGTH) return NextResponse.json({ stops: [] })
 
     try {
-        const stops = boardService.searchStops(query.data.q)
+        const stops = await boardService.searchStops(query.data.q)
         return NextResponse.json({ stops }, { headers: { "Cache-Control": "private, max-age=60" } })
     } catch (error) {
         return handleRouteError(error)

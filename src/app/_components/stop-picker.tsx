@@ -1,27 +1,13 @@
-// Place field with suggestions as you type ("Invoerveld" with a combobox list)
+// Place field with stop and address suggestions as you type ("Invoerveld" with a combobox list)
 
 "use client"
 
 import { useId, useRef, useState, type KeyboardEvent } from "react"
 
-import { cva } from "class-variance-authority"
-
 import { Icon, type IconName } from "@/components/ui/icon"
 import { useStopSearch } from "@/hooks/use-stop-search"
 
-// --- STYLING ---
-
-const optionVariants = cva("text-body-m flex min-h-11 cursor-pointer items-center px-4", {
-    variants: {
-        active: {
-            true: "bg-surface",
-            false: "",
-        },
-    },
-    defaultVariants: {
-        active: false,
-    },
-})
+import PlaceOption from "./place-option"
 
 // --- INTERFACES ---
 
@@ -94,7 +80,7 @@ export default function StopPicker({
         } else if (event.key === "Enter") {
             event.preventDefault()
             const option = options[active]
-            if (option) choose(option)
+            if (option) choose({ id: option.id, name: option.name })
         }
     }
 
@@ -148,21 +134,18 @@ export default function StopPicker({
                 id={listId}
                 role="listbox"
                 hidden={!showList}
-                className="bg-background absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-xl py-1 shadow-[0_4px_20px_rgba(0,0,0,0.16)]"
+                className="bg-background absolute z-10 mt-1 max-h-96 w-full overflow-auto rounded-xl py-1 shadow-[0_4px_20px_rgba(0,0,0,0.16)]"
             >
                 {options.map((option, index) => (
-                    <li
+                    <PlaceOption
                         key={option.id}
                         id={`${listId}-${index}`}
-                        role="option"
-                        aria-selected={index === active}
+                        place={option}
+                        active={index === active}
                         onMouseDown={(event) => event.preventDefault()}
-                        onClick={() => choose(option)}
+                        onClick={() => choose({ id: option.id, name: option.name })}
                         onMouseEnter={() => setActive(index)}
-                        className={optionVariants({ active: index === active })}
-                    >
-                        {option.name}
-                    </li>
+                    />
                 ))}
             </ul>
         </div>

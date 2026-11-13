@@ -24,8 +24,12 @@ interface SearchBarProps {
 
 // --- HELPERS ---
 
-/** "Utrecht, Kleinesingel" → "Kleinesingel": the town is clear from the map. */
-const shortPlace = (name: string) => name.replace(/^[^,]+, /, "")
+/**
+ * "Utrecht, Kleinesingel" → "Kleinesingel" and "Oudegracht 10, Utrecht" → "Oudegracht 10": the
+ * town is clear from the map. Stops put the town first, addresses last (after the house number).
+ */
+const shortPlace = (name: string) =>
+    /^[^,]*\d[^,]*, /.test(name) ? name.replace(/, .*$/, "") : name.replace(/^[^,]+, /, "")
 
 function titleOf(from: SearchBarPlace | null, to: SearchBarPlace | null): string {
     if (!from && !to) return "Waar wil je heen?"

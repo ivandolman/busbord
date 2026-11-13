@@ -1,4 +1,4 @@
-// GET /api/place: display name for a stop area or map point, for selections restored from the URL
+// GET /api/place: display name for a stop area, address or map point, for selections restored from the URL
 
 import { NextResponse, type NextRequest } from "next/server"
 
@@ -13,12 +13,12 @@ export const dynamic = "force-dynamic"
 
 // --- HANDLER ---
 
-export function GET(request: NextRequest): NextResponse {
+export async function GET(request: NextRequest): Promise<NextResponse> {
     const query = parseQuery(PlaceQuerySchema, request.nextUrl.searchParams, "Onbekende plek.")
     if (query.error) return query.error
 
     try {
-        const place = boardService.getPlace(query.data.id)
+        const place = await boardService.getPlace(query.data.id)
         return NextResponse.json(place, { headers: { "Cache-Control": "private, max-age=3600" } })
     } catch (error) {
         return handleRouteError(error)
