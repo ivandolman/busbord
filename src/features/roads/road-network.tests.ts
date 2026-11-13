@@ -18,6 +18,12 @@ describe("classifyWay", () => {
         // Footpaths are kept for walking only (the bus graph leaves them out).
         assert.strictEqual(classifyWay(tags({ highway: "footway" }))?.roadClass, FOOT_CLASS)
         assert.strictEqual(classifyWay(tags({ highway: "footway", access: "private" })), null)
+        assert.strictEqual(
+            classifyWay(tags({ railway: "platform", area: "yes" }))?.roadClass,
+            FOOT_CLASS,
+        )
+        assert.strictEqual(classifyWay(tags({ highway: "platform" }))?.roadClass, FOOT_CLASS)
+        assert.strictEqual(classifyWay(tags({ railway: "platform", access: "no" })), null)
         assert.strictEqual(classifyWay(tags({ highway: "cycleway", foot: "no" })), null)
         assert.strictEqual(classifyWay(tags({ highway: "residential", access: "private" })), null)
         assert.strictEqual(

@@ -128,6 +128,12 @@ export function classifyWay(
     if (railway === "tram" || railway === "light_rail") return { roadClass: TRAM_CLASS, oneway: 0 }
 
     const highway = tags.get("highway")
+    // Platforms are mostly mapped as areas: walking along their outline still reaches the stairs
+    // and footpaths that end on them, so a walk can start on the platform the train arrives at.
+    if (railway === "platform" || highway === "platform") {
+        if (NO.has(tags.get("foot") ?? "") || NO.has(tags.get("access") ?? "")) return null
+        return { roadClass: FOOT_CLASS, oneway: 0 }
+    }
     if (highway !== undefined && FOOT_HIGHWAYS.has(highway)) {
         const foot = tags.get("foot")
         if (NO.has(foot ?? "") || (NO.has(tags.get("access") ?? "") && !YES.has(foot ?? "")))
