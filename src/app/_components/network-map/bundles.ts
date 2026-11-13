@@ -6,6 +6,7 @@ import type { Corridor } from "@/features/network/corridors"
 import type { Network, NetworkLine } from "@/features/network/network.service"
 
 import { lineColor } from "./map-lines"
+import type { AdvisedLine } from "./network-map.types"
 import { offsetPath, type ScreenPoint } from "./offset-path"
 
 // --- CONSTANTS ---
@@ -95,11 +96,14 @@ function strokeGroups(
     lines: NetworkLine[],
     focus: boolean,
     colors: { night: string; edge: string },
+    advised: AdvisedLine | null,
 ): StrokeGroup[] {
     if (focus) {
-        // In the colour of the busiest line, a day line where there is one.
+        // In the colour of the advised line where it runs, else the busiest (a day line if any).
         const day = lines.filter((line) => kindOf(line) !== "night")
-        const shown = (day.length > 0 ? day : lines).reduce((a, b) => (b.trips > a.trips ? b : a))
+        const shown =
+            lines.find((line) => line.line === advised?.line && line.mode === advised.mode) ??
+            (day.length > 0 ? day : lines).reduce((a, b) => (b.trips > a.trips ? b : a))
         return [{ lines, color: lineColor(shown), trips: 0, night: false }]
     }
     return KINDS.map((kind) => ({ kind, ofKind: lines.filter((line) => kindOf(line) === kind) }))
@@ -130,6 +134,7 @@ export function drawStripes(
     network: Network,
     group: L.LayerGroup,
     visible: Set<number> | null,
+    advised: AdvisedLine | null,
     onClick: (lines: NetworkLine[], event: L.LeafletMouseEvent) => void,
 ): Stripe[] {
     group.clearLayers()
@@ -140,7 +145,9 @@ export function drawStripes(
             .filter((index) => !visible || visible.has(index))
             .map((index) => network.lines[index])
             .filter((line): line is NetworkLine => line !== undefined)
-        return lines.length > 0 ? [{ corridor, groups: strokeGroups(lines, focus, colors) }] : []
+        return lines.length > 0
+            ? [{ corridor, groups: strokeGroups(lines, focus, colors, advised) }]
+            : []
     })
 
     // Widths follow the square root of the trips. Relative to a busy road rather than the

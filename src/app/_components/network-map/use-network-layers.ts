@@ -16,7 +16,14 @@ import { linesNear } from "./lines-near"
 import { linesPopupContent } from "./lines-popup-content"
 import { sortLines } from "./map-lines"
 import type { Reachable } from "./network-map.schema"
-import type { DrawnLine, NetworkLayers, OpenStop, PlaceKey, StopLook } from "./network-map.types"
+import type {
+    AdvisedLine,
+    DrawnLine,
+    NetworkLayers,
+    OpenStop,
+    PlaceKey,
+    StopLook,
+} from "./network-map.types"
 import { rideNetwork } from "./ride-network"
 import { STOP_STYLE, stopRadius, widenTouchTarget } from "./stop-dots"
 
@@ -45,6 +52,8 @@ interface UseNetworkLayersOptions {
     onOpenStop: (stop: OpenStop) => void
     /** "Show only this line" in the lines popup. */
     onShowLine: (line: string) => void
+    /** The line the board says to take: shared roads of a ride take its colour. */
+    advisedLine: AdvisedLine | null
 }
 
 interface LayerGroups {
@@ -67,6 +76,7 @@ export function useNetworkLayers({
     onPick,
     onOpenStop,
     onShowLine,
+    advisedLine,
 }: UseNetworkLayersOptions): RefObject<NetworkLayers> {
     const layersRef = useRef<NetworkLayers>({ lines: [], stops: [] })
     const groupsRef = useRef<LayerGroups | null>(null)
@@ -84,6 +94,7 @@ export function useNetworkLayers({
     const pick = useEffectEvent((key: PlaceKey, place: StopOption) => onPick(key, place))
     const openStop = useEffectEvent((stop: OpenStop) => onOpenStop(stop))
     const showLine = useEffectEvent((line: string) => onShowLine(line))
+    const currentAdvised = useEffectEvent(() => advisedLine)
     /** Draws the lines in `visible` (all when null); one entry per line for hit-testing. */
     const drawLines = useEffectEvent(
         (
@@ -93,11 +104,23 @@ export function useNetworkLayers({
             visible: Set<number> | null,
             key: string,
         ): DrawnLine[] => {
-            const stripes = drawStripes(map, network, group, visible, (lines, event) =>
-                openLinesPopup(map, event, lines[0] as NetworkLine, layersRef.current, (chosen) => {
-                    showLine(chosen.line)
-                    map.closePopup()
-                }),
+            const stripes = drawStripes(
+                map,
+                network,
+                group,
+                visible,
+                currentAdvised(),
+                (lines, event) =>
+                    openLinesPopup(
+                        map,
+                        event,
+                        lines[0] as NetworkLine,
+                        layersRef.current,
+                        (chosen) => {
+                            showLine(chosen.line)
+                            map.closePopup()
+                        },
+                    ),
             )
             stripesRef.current = { stripes, key, network, visible }
             // The canvas draws in the order layers arrive: put the stops back on top.
@@ -201,8 +224,11 @@ export function useNetworkLayers({
         // Lines outside the focus are taken off the map, not faded: they cannot take you there.
         // The rest close up, so a bundle shows only the lines in focus.
         const visible = ride ? ride.visible : focusLines === null ? null : focus.indexes
+        const advised = advisedLine ? `${advisedLine.mode}|${advisedLine.line}` : ""
         const key =
-            ride?.key ?? (visible === null ? "all" : [...visible].sort((a, b) => a - b).join(","))
+            (ride?.key ??
+                (visible === null ? "all" : [...visible].sort((a, b) => a - b).join(","))) +
+            (visible === null ? "" : `@${advised}`)
         if (key !== stripesRef.current.key) {
             layersRef.current = {
                 ...layersRef.current,
@@ -242,7 +268,7 @@ export function useNetworkLayers({
                 return () => window.clearTimeout(timer)
             }
         }
-    }, [map, network, reachable, query, matchingLines, focus])
+    }, [map, network, reachable, query, matchingLines, focus, advisedLine])
 
     return layersRef
 }

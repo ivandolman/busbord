@@ -2,11 +2,18 @@
 
 import type L from "leaflet"
 
+import type { Mode } from "@/features/board/board.types"
 import type { NetworkLine, NetworkStop } from "@/features/network/network.service"
 
 // --- INTERFACES ---
 
 export type PlaceKey = "from" | "to"
+
+/** A line by number and mode, as the board names it (the board knows no route ids). */
+export interface AdvisedLine {
+    line: string
+    mode: Mode
+}
 
 /** A walk of one departure: to the stop where you get on, or from where you get off. */
 export interface WalkLeg {

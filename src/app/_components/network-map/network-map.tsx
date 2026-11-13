@@ -19,7 +19,7 @@ import LineSearch from "./line-search"
 import MapLegend from "./map-legend"
 import { sortLines } from "./map-lines"
 import type { Reachable } from "./network-map.schema"
-import type { OpenStop, PlaceKey, WalkLeg } from "./network-map.types"
+import type { AdvisedLine, OpenStop, PlaceKey, WalkLeg } from "./network-map.types"
 import StopCard from "./stop-card"
 import StopSheet from "./stop-sheet"
 import { useLeafletMap } from "./use-leaflet-map"
@@ -41,6 +41,8 @@ interface NetworkMapProps {
     walk: boolean
     /** Walks to draw for a departure picked on the board. */
     walkLegs?: WalkLeg[]
+    /** The line the board says to take: shared roads of a ride are drawn in its colour. */
+    advisedLine?: AdvisedLine | null
     onPick: (key: PlaceKey, place: StopOption) => void
     /** Set while the user is choosing a place on the map: the next tap picks it directly. */
     pickTarget?: PlaceKey | null
@@ -68,6 +70,7 @@ export default function NetworkMap({
     toId,
     walk,
     walkLegs = [],
+    advisedLine = null,
     onPick,
     pickTarget = null,
     lineSearchOpen = false,
@@ -120,6 +123,7 @@ export default function NetworkMap({
         onPick,
         onOpenStop: setOpenStop,
         onShowLine: setLineQuery,
+        advisedLine,
     })
     const flight = useStopFlight(map, openStop?.phone ? openStop : null)
     useStopHighlight(map, openStop)

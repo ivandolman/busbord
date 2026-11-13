@@ -12,6 +12,7 @@ import SettingsPanel from "@/app/_components/settings/settings-panel"
 import LogoutRow from "@/components/app/logout-row"
 import { Sheet, type SheetSnap } from "@/components/ui/sheet"
 import type { Departure } from "@/features/board/board.types"
+import { overview } from "@/features/board/group"
 import { sameRoute, type SavedRoute } from "@/features/saved-routes/saved-routes"
 import { useBoard } from "@/hooks/use-board"
 import { useLeaveAlert } from "@/hooks/use-leave-alert"
@@ -109,6 +110,10 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
         board !== null && board.origin.id === fromId && board.destination.id === toId
     const currentBoard = boardMatches ? board : null
     const trip = useShownTrip(fromId, toId, currentBoard)
+    // The map draws a shared road in the colour of the line the board says to take.
+    const advised = currentBoard
+        ? overview(currentBoard.departures, currentBoard.origin.name).pick
+        : null
     // A new route drops the ride shown, and with it the trip panel.
     const visiblePanel: Panel = panel === "trip" && !trip.shown ? "board" : panel
 
@@ -209,6 +214,7 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
                     walk={walk}
                     onPick={pick}
                     walkLegs={trip.walkLegs}
+                    advisedLine={advised ? { line: advised.line, mode: advised.mode } : null}
                     pickTarget={pickTarget}
                     lineSearchOpen={lineSearchOpen}
                     onStopSheetChange={setStopSheetOpen}
