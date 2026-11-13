@@ -127,11 +127,11 @@ roll in, and grey placeholder rows stand in while departures load. With "reduce 
 system, none of this moves.
 
 The look follows the Figma design ("Concept B – uitgewerkt"): its colour variables and text
-styles are Tailwind tokens in `src/app/globals.css` (`text-tekst`, `bg-oppervlak`, `text-body-s`,
-`text-kop-xl`, …), its icons are `public/icons/*.svg` drawn by `src/components/Icon.tsx`, and
-line badges use each line's own colour from the feed (`useNetwork.ts`). Dark mode follows the
+styles are Tailwind tokens in `src/styles/theme/*.css` (`text-foreground`, `bg-surface`, `text-body-s`,
+`text-heading-xl`, …), its icons are `public/icons/*.svg` drawn by `src/components/ui/icon.tsx`, and
+line badges use each line's own colour from the feed (`src/hooks/use-network.ts`). Dark mode follows the
 system, or "Weergave" in the settings (per device, `src/lib/theme.ts`): the same tokens get dark
-values in `globals.css`, and the base map, which has no dark version, is shown inverted.
+values in `src/styles/theme/colors.css`, and the base map, which has no dark version, is shown inverted.
 
 ## How it works
 
@@ -148,13 +148,13 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    walking estimate is rough); of those, the one with the least walking wins. The margin is a
    setting ("Minder lopen mag … langer duren", default 2 min, 0 = always the quickest).
 2. **Stop pairs.** A trip is a match when it calls at an origin platform and, later in the
-   same trip, at a destination platform (`src/lib/board/repository.ts`). That is one indexed
+   same trip, at a destination platform (`src/features/board/board.repository.ts`). That is one indexed
    self-join on `stop_times`; no line list is maintained anywhere.
 3. **Ranking.** Departures are listed in departure order. Walking counts: each departure
    carries the walk to its stop and from the stop where you get off, at 5 km/h. With
    `data/roads.bin` present that is the real walking route over streets, footpaths and
    pedestrian areas (both ways along one-way streets, never along motorways or tram tracks,
-   `src/lib/roads/walking.ts`); without it, the straight line plus a quarter. The same walk
+   `src/features/roads/walking.ts`); without it, the straight line plus a quarter. The same walk
    decides which stops count: a stop near the origin (or near a point on the map) counts when
    you can walk there within the "Maximaal lopen" setting (default 12 minutes, about 1 km),
    so a stop across the water no longer counts just because it looks close. A stop chosen as
@@ -164,17 +164,17 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    along the streets (`/api/walk-route`). The arrival shown is at the place you asked for, and a bus
    you cannot walk to in time is greyed out. One you set off for no later than another yet
    arrive after it is marked "Ingehaald door …", so "take the first one that is not greyed out"
-   is always right (`src/lib/board/build-board.ts`).
+   is always right (`src/features/board/build-board.ts`).
    The board shows this as one "Pak deze" card (the departure that gets you there first; on a
    tie the one you can leave for later) with the next fallbacks, and below it every line and
    direction once with its next times; lines that are always beaten fold away
-   (`src/lib/board/group.ts`).
+   (`src/features/board/group.ts`).
 4. **Map.** The importer stores each route's distinct stopping patterns with their geometry
    (`line_patterns`). The feed's `shapes.txt` is not reliable on its own: diversions and some
    routes are straight lines from stop to stop. With `data/roads.bin` present, every hop
    between two stops is routed over OpenStreetMap roads, bus lanes and tram tracks (one-way
    streets respected, buses allowed where `oneway:bus=no`), with the feed's shape as a guide
-   so the route picks the street the bus really takes (`src/lib/roads/`). A hop falls back to
+   so the route picks the street the bus really takes (`src/features/roads/`). A hop falls back to
    the feed's shape when a stop is not near any road or routing gives an implausible detour.
    Without `roads.bin` the feed's shapes are used as they are. A database imported before that table existed still works: the patterns
    are then computed on first use (~3 s) and drawn stop to stop. For drawing, all patterns
@@ -189,7 +189,7 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    that are useful for the selection (today, without changing): with only an origin the
    lines leaving it, with only a destination the lines arriving there, with both only the
    stretch of each line you ride, from where you board to where you get off (picked per trip
-   as on the board, `src/lib/network/segments.ts`). Clicking a line lists every line on that stretch;
+   as on the board, `src/features/network/segments.ts`). Clicking a line lists every line on that stretch;
    clicking a stop shows its next hour of departures, every line, with the ones that reach
    the chosen destination marked. A stop has several poles (one per side of the street, often
    listed twice in the feed): each gets a letter (the feed's platform code when there is one),
@@ -198,7 +198,7 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    directions (where the buses go next), one tab each; with a destination chosen the popup
    opens on the direction most rides there leave from, showing every bus on that side.
    Stop areas with the same name close together are one dot on the map, also when operators
-   spell the name differently ("Kleinesingel", "Kleine Singel"; `src/lib/stop-name.ts`); the
+   spell the name differently ("Kleinesingel", "Kleine Singel"; `src/features/board/stop-name.ts`); the
    board and stop search treat them as one stop the same way.
    Stop dots grow with the zoom level. From zoom 15 a stop gets its line numbers top right of
    the dot, wherever that does not overlap another label (busiest stops first); with a search
@@ -214,7 +214,7 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    through `/api/routes`; the walking margin is stored there too (`/api/settings`). The
    timetable import never touches that file. Routes an earlier version kept in the browser's
    localStorage move to the server on the first visit. Input is validated on write and read
-   (`src/lib/user-data.ts`). There is one list for everyone who can reach the app. A route can be a regular trip with days
+   (`src/features/user-data/`). There is one list for everyone who can reach the app. A route can be a regular trip with days
    and a time window ("ma–vr 07:30–09:00"): opening the app without a route inside that
    window opens it straight away. The app has a web manifest, so it can be added to a phone's
    home screen.
@@ -222,9 +222,9 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    cancelled trips stay visible but struck through. If the feed is down the board falls
    back to the timetable and says so. Service alerts (`GTFS_ALERTS_URL`, fetched at most every
    2 minutes) about the board's lines or its stops show above the board
-   (`src/lib/board/alerts.ts`).
+   (`src/features/board/alerts.ts`).
 7. **Transfers.** When no direct ride helps, the board offers trips with one change
-   (`src/lib/board/transfers.ts`): stops where a line from the origin meets a line to the
+   (`src/features/board/transfers.ts`): stops where a line from the origin meets a line to the
    destination (or same-named stops across the street), with 2 minutes to change plus the
    walk, keeping only journeys nothing beats on both leaving later and arriving earlier.
 8. **Phone app.** A service worker (`public/sw.js`, production builds only) keeps the app and
@@ -234,26 +234,8 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    the background; there is no server push, so a closed app sends nothing. The manifest lists
    the saved routes as home-screen shortcuts (long press on the app icon).
 
-```
-scripts/            import-gtfs.ts, import-roads.ts, make-demo-feed.ts
-Dockerfile          production image; docker-entrypoint.sh imports the timetable on first start
-src/lib/gtfs/       streaming CSV + zip reader, importer, schema, demo feed
-src/lib/board/      repository (SQL), build-board (pure logic), realtime, service
-src/lib/network/    line patterns and shapes for the map
-src/lib/roads/      OSM PBF reader, road network, router (lines along the street)
-src/app/api/        /api/stops?q=   /api/board?from=&to=&walk=&tie=&trains=
-                    /api/network    /api/reachable?from=&to=&walk=&tie=   /api/place?id=
-                    /api/departures?stop=&to=&walk=
-                    /api/next-departures?areas=a,b&to=&walk=   /api/walk-area?id=&walk=&role=
-                    /api/walk-route?from=@lat,lon&to=@lat,lon
-                    (walking settings travel as &tie=&maxWalk=, else the stored ones)
-                    /api/routes (GET, POST, DELETE ?id=)   /api/settings (GET, PUT)
-                    /api/login (POST form)   /api/logout (POST)   /api/health
-src/proxy.ts        login check on every request (src/lib/auth.ts)
-src/components/     StopPicker, BoardView, BoardApp, NetworkMap (Leaflet)
-src/**/*.tests.ts   unit tests next to their source (`pnpm test`); `*.integration.tests.ts`
-                    run on the demo feed and temp files (`pnpm test:integration`)
-```
+Where each part lives (files, API routes, data files, tests): see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## What is and is not verified
 
@@ -300,7 +282,7 @@ Not verified at first, because the environment this was built in could not reach
 - The map loads its background tiles in the visitor's browser from service.pdok.nl (the
   Dutch government's open base map; Netherlands only) or, when chosen, tile.openstreetmap.org.
   That is fine for light use; read the OSM tile usage policy (or switch to your own tile
-  source in `NetworkMap.tsx`) before going public.
+  source in `src/app/_components/network-map/use-leaflet-map.ts`) before going public.
 - Outbound requests go only to `GTFS_URL` / `GTFS_RT_URL` / `GTFS_ALERTS_URL` from the
   environment, never to a URL taken from a request.
 - Road data © OpenStreetMap contributors (ODbL), via Geofabrik extracts. Keep the map's

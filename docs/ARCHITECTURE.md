@@ -5,8 +5,7 @@ repo. **Keep this file up to date:** a commit that adds, removes, moves or renam
 API route, an env var or a data file updates the matching line here in the same commit.
 
 Behaviour in depth (ranking rules, walking radii, map drawing) is in `README.md` § "How it
-works"; its file paths are partly outdated (`src/lib/board/` is now `src/features/board/`,
-`src/lib/roads/` is `src/features/roads/`, etc.). This file is the source for paths.
+works"; grep it rather than reading it whole.
 
 ## Stack
 
