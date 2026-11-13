@@ -416,6 +416,16 @@ function tidyJunctions(
 
 // --- SERVICE ---
 
+/** Trams first, then by line number: the order lines lie side by side along a shared road. */
+export function compareDrawingOrder(
+    a: { mode: string; line: string },
+    b: { mode: string; line: string },
+): number {
+    const railA = a.mode === "bus" ? 1 : 0
+    const railB = b.mode === "bus" ? 1 : 0
+    return railA - railB || a.line.localeCompare(b.line, "nl", { numeric: true })
+}
+
 /**
  * Corridors for the given lines. Inputs come in drawing order (the first line is drawn leftmost
  * wherever lines share a road), and earlier lines shape the shared centre lines.

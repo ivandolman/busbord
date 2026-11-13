@@ -16,7 +16,7 @@ import { config } from "@/lib/config"
 import { getDatabase } from "@/lib/db"
 import { distanceMeters } from "@/lib/geo"
 
-import { buildCorridors, type Corridor } from "./corridors"
+import { buildCorridors, compareDrawingOrder, type Corridor } from "./corridors"
 import type { ReachableQuery } from "./network.schema"
 import { loadPatterns } from "./patterns"
 import { getReachable } from "./reachable"
@@ -192,14 +192,9 @@ export function buildNetwork(db: DatabaseSync): Network {
         }
     })
 
-    // Trams first, then by line number: the order lines lie side by side along a shared road.
-    const drawingOrder = [...pathsOfLine.keys()].sort((a, b) => {
-        const lineA = lines[a] as NetworkLine
-        const lineB = lines[b] as NetworkLine
-        const railA = lineA.mode === "bus" ? 1 : 0
-        const railB = lineB.mode === "bus" ? 1 : 0
-        return railA - railB || lineA.line.localeCompare(lineB.line, "nl", { numeric: true })
-    })
+    const drawingOrder = [...pathsOfLine.keys()].sort((a, b) =>
+        compareDrawingOrder(lines[a] as NetworkLine, lines[b] as NetworkLine),
+    )
     const corridors = buildCorridors(
         drawingOrder.map((index) => ({ index, paths: pathsOfLine.get(index) ?? [] })),
     )

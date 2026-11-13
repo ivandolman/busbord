@@ -46,8 +46,7 @@ export interface DrawnStop {
 
 /** Every network layer on the map, shared by the hooks that restyle, label and hit-test them. */
 export interface NetworkLayers {
+    /** The drawn lines; with origin and destination, only the stretches ridden. */
     lines: DrawnLine[]
-    /** With origin and destination: the ridden stretches drawn instead of whole lines. */
-    segments: DrawnLine[]
     stops: DrawnStop[]
 }

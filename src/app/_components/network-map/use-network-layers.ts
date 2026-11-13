@@ -14,15 +14,13 @@ import { fitPadding } from "./fit-padding"
 import type { LineFocus } from "./line-focus"
 import { linesNear } from "./lines-near"
 import { linesPopupContent } from "./lines-popup-content"
-import { lineColor, sortLines } from "./map-lines"
+import { sortLines } from "./map-lines"
 import type { Reachable } from "./network-map.schema"
 import type { DrawnLine, NetworkLayers, OpenStop, PlaceKey, StopLook } from "./network-map.types"
+import { rideNetwork } from "./ride-network"
 import { STOP_STYLE, stopRadius, widenTouchTarget } from "./stop-dots"
 
 // --- CONSTANTS ---
-
-/** Dark casing under ridden stretches ("Rand lijn" in the design). */
-const CASING = "#1b2230"
 
 /** How long the line search must stand still before the map fits to the lines found. */
 const FIT_DELAY_MS = 300
@@ -51,7 +49,6 @@ interface UseNetworkLayersOptions {
 
 interface LayerGroups {
     lines: L.LayerGroup
-    segments: L.LayerGroup
     stops: L.LayerGroup
 }
 
@@ -71,7 +68,7 @@ export function useNetworkLayers({
     onOpenStop,
     onShowLine,
 }: UseNetworkLayersOptions): RefObject<NetworkLayers> {
-    const layersRef = useRef<NetworkLayers>({ lines: [], segments: [], stops: [] })
+    const layersRef = useRef<NetworkLayers>({ lines: [], stops: [] })
     const groupsRef = useRef<LayerGroups | null>(null)
     const stripesRef = useRef<{
         stripes: Stripe[]
@@ -94,6 +91,7 @@ export function useNetworkLayers({
             network: Network,
             group: L.LayerGroup,
             visible: Set<number> | null,
+            key: string,
         ): DrawnLine[] => {
             const stripes = drawStripes(map, network, group, visible, (lines, event) =>
                 openLinesPopup(map, event, lines[0] as NetworkLine, layersRef.current, (chosen) => {
@@ -101,7 +99,6 @@ export function useNetworkLayers({
                     map.closePopup()
                 }),
             )
-            const key = visible === null ? "all" : [...visible].sort((a, b) => a - b).join(",")
             stripesRef.current = { stripes, key, network, visible }
             // The canvas draws in the order layers arrive: put the stops back on top.
             for (const { layer } of layersRef.current.stops) layer.bringToFront()
@@ -113,7 +110,6 @@ export function useNetworkLayers({
         if (!map) return
         const groups: LayerGroups = {
             lines: L.layerGroup().addTo(map),
-            segments: L.layerGroup().addTo(map),
             stops: L.layerGroup().addTo(map),
         }
         groupsRef.current = groups
@@ -130,7 +126,7 @@ export function useNetworkLayers({
             if (!network) return
             layersRef.current = {
                 ...layersRef.current,
-                lines: drawLines(map, network, groups.lines, visible),
+                lines: drawLines(map, network, groups.lines, visible, stripesRef.current.key),
             }
         }
         const scheme = window.matchMedia("(prefers-color-scheme: dark)")
@@ -153,7 +149,7 @@ export function useNetworkLayers({
         groups.lines.clearLayers()
         groups.stops.clearLayers()
 
-        const lines = drawLines(map, network, groups.lines, null)
+        const lines = drawLines(map, network, groups.lines, null, "all")
 
         const stops = network.stops.map((stop) => {
             const layer = L.circleMarker([stop.lat, stop.lon], {
@@ -198,50 +194,19 @@ export function useNetworkLayers({
         if (!map || !network || !focus || !groups) return
         const focusLines = focus.lineIds
 
-        // With origin and destination, only the stretches you ride are drawn, not whole lines.
+        // With origin and destination, only the stretches you ride are drawn, not whole lines,
+        // merged like the network so lines riding the same street lie side by side.
         const segments = !query && reachable?.direction === "both" ? reachable.segments : null
-        groups.segments.clearLayers()
-        const drawnSegments: DrawnLine[] = []
-        if (segments) {
-            const linesById = new Map(network.lines.map((line) => [line.id, line]))
-            for (const segment of segments) {
-                const line = linesById.get(segment.routeId)
-                if (!line) continue
-                // The design's "Rand lijn": a dark casing under the line's colour.
-                const casing = L.polyline(segment.path, {
-                    color: CASING,
-                    weight: 9,
-                    opacity: 0.85,
-                    interactive: false,
-                })
-                const layer = L.polyline(segment.path, {
-                    color: lineColor(line),
-                    weight: 6,
-                    opacity: 1,
-                })
-                layer.on("click", (event: L.LeafletMouseEvent) =>
-                    openLinesPopup(map, event, line, layersRef.current, (chosen) => {
-                        showLine(chosen.line)
-                        map.closePopup()
-                    }),
-                )
-                groups.segments.addLayer(casing)
-                groups.segments.addLayer(layer)
-                // Under the stops, so a click on a stop still opens the stop.
-                layer.bringToBack()
-                casing.bringToBack()
-                drawnSegments.push({ line, layer })
-            }
-        }
-
+        const ride = segments ? rideNetwork(network, segments) : null
         // Lines outside the focus are taken off the map, not faded: they cannot take you there.
         // The rest close up, so a bundle shows only the lines in focus.
-        const visible = segments ? new Set<number>() : focusLines === null ? null : focus.indexes
-        const key = visible === null ? "all" : [...visible].sort((a, b) => a - b).join(",")
+        const visible = ride ? ride.visible : focusLines === null ? null : focus.indexes
+        const key =
+            ride?.key ?? (visible === null ? "all" : [...visible].sort((a, b) => a - b).join(","))
         if (key !== stripesRef.current.key) {
             layersRef.current = {
                 ...layersRef.current,
-                lines: drawLines(map, network, groups.lines, visible),
+                lines: drawLines(map, ride?.network ?? network, groups.lines, visible, key),
             }
         }
 
@@ -261,7 +226,7 @@ export function useNetworkLayers({
             if (look === "focus") layer.bringToFront()
             return { ...circle, look }
         })
-        layersRef.current = { ...layersRef.current, segments: drawnSegments, stops }
+        layersRef.current = { ...layersRef.current, stops }
 
         if (query && matchingLines.length > 0) {
             const points = network.corridors
@@ -293,7 +258,7 @@ function openLinesPopup(
     onShowOnly: (line: NetworkLine) => void,
 ): void {
     L.DomEvent.stopPropagation(event)
-    const found = linesNear(map, event.containerPoint, [...layers.lines, ...layers.segments])
+    const found = linesNear(map, event.containerPoint, layers.lines)
     if (found.length === 0) found.push(fallback)
     L.popup({ maxWidth: 320, className: "card-popup" })
         .setLatLng(event.latlng)
