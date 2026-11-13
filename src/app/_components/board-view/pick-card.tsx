@@ -3,7 +3,7 @@
 import LineBadge from "@/app/_components/line-badge"
 import { RollingText } from "@/components/ui/rolling-text"
 import type { Board, Departure } from "@/features/board/board.types"
-import { minutes, walkLine, whenPhrase } from "@/features/board/departure-text"
+import { leavePhrase, minutes, walkLine } from "@/features/board/departure-text"
 import { delayMinutes, formatClock, formatWait } from "@/features/board/format"
 import { shortHeadsign } from "@/features/board/group"
 
@@ -56,8 +56,7 @@ export default function PickCard({ pick, then, board, now, onShowRoute }: PickCa
             </div>
             <p className="flex flex-wrap items-baseline gap-x-2">
                 <span className="text-figure-l tabular-nums">
-                    {mustWalk ? "Ga lopen " : "Vertrekt "}
-                    <RollingText value={whenPhrase(leave)} />
+                    <RollingText value={leavePhrase(leave, mustWalk)} />
                 </span>
                 {delay >= 1 && (
                     <RollingText

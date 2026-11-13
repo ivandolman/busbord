@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { CloseButton } from "@/components/ui/close-button"
 import { Icon } from "@/components/ui/icon"
 import type { Board, Departure } from "@/features/board/board.types"
-import { minutes, whenPhrase } from "@/features/board/departure-text"
+import { leavePhrase, minutes } from "@/features/board/departure-text"
 import { delayMinutes, formatClock, formatWait, MODE_LABEL } from "@/features/board/format"
 import { shortHeadsign } from "@/features/board/group"
 
@@ -28,13 +28,14 @@ export default function TripView({ departure, board, now, onClose }: TripViewPro
         ? shortHeadsign(departure.headsign, board.origin.name)
         : MODE_LABEL[departure.mode]
     const mustWalk = departure.walkToSeconds > 0
-    const when = whenPhrase(
+    const leave = leavePhrase(
         formatWait(mustWalk ? departure.leaveAt : departure.expectedDeparture, now),
+        mustWalk,
     )
     const late = delay >= 1 ? ` +${delay}` : ""
     const status = departure.cancelled
         ? "Rit vervalt"
-        : `${mustWalk ? "Ga lopen" : "Vertrekt"} ${when} · ${MODE_LABEL[departure.mode].toLowerCase()} ${formatClock(departure.expectedDeparture)}${late}`
+        : `${leave} · ${MODE_LABEL[departure.mode].toLowerCase()} ${formatClock(departure.expectedDeparture)}${late}`
 
     return (
         <div className="flex flex-col gap-3">

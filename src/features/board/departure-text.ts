@@ -19,6 +19,12 @@ export function whenPhrase(wait: string): string {
     return wait.includes(":") ? `om ${wait}` : `over ${wait}`
 }
 
+/** When to set off: "Tijd om te lopen", "Lopen over 4 min" or "Vertrekt om 13:05". */
+export function leavePhrase(wait: string, mustWalk: boolean): string {
+    if (!mustWalk) return `Vertrekt ${whenPhrase(wait)}`
+    return wait === "nu" ? "Tijd om te lopen" : `Lopen ${whenPhrase(wait)}`
+}
+
 /** "Lopen: 6 min naar Padualaan, 4 min vanaf Kleinesingel", or null when you board and get off where you asked. */
 export function walkLine(
     departure: Departure,
