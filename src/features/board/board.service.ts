@@ -10,7 +10,7 @@ import {
 import { config } from "@/lib/config"
 import { getDatabase } from "@/lib/db"
 import { distanceMeters } from "@/lib/geo"
-import { parsePointId, type Point } from "@/lib/place"
+import { parsePlatformQuery, parsePointId, platformPlace, type Point } from "@/lib/place"
 import { localServiceDate, shiftServiceDate } from "@/lib/time"
 
 import { getAlertSource, matchAlerts, type AlertSource } from "./alerts"
@@ -24,6 +24,7 @@ import type {
     StopBoard,
     StopDeparture,
     StopPole,
+    TrainStation,
 } from "./board.types"
 import {
     LATE_DEPARTURE_GRACE_SECONDS,
@@ -49,6 +50,8 @@ import { findTransfers } from "./transfers"
 
 /** A stop's card offers the platforms of a train station this close (bus station to tracks). */
 const STATION_METERS = 500
+/** A map point this close to a platform is that platform (point ids round to about a metre). */
+const ON_PLATFORM_METERS = 3
 /** Trains are left out unless asked for: the board is about getting around town. */
 const DEFAULT_MODES: ReadonlySet<Mode> = new Set<Mode>(["bus", "tram", "metro"])
 const ALL_MODES: ReadonlySet<Mode> = new Set<Mode>([
@@ -388,14 +391,47 @@ export const createBoardService = ({
 
         /** Display name for a stop area or map point, for selections restored from the URL. */
         getPlace(id: string): { id: string; name: string } {
+            const point = parsePointId(id)
+            if (point) {
+                const station = repository().trainStationNear(point.lat, point.lon, STATION_METERS)
+                const platform = station?.platforms.find(
+                    (candidate) =>
+                        distanceMeters(point.lat, point.lon, candidate.lat, candidate.lon) <=
+                        ON_PLATFORM_METERS,
+                )
+                if (station && platform) return { id, name: platformPlace(station, platform).name }
+            }
             const { area } = resolveEndpoint(repository(), id, { walking: false, role: "from" })
             return { id, name: area.name }
         },
 
+        /** The train station near a stop area or map point, to start from one of its platforms. */
+        getStation(id: string): TrainStation | null {
+            const point = parsePointId(id)
+            const center = point ?? repository().getArea(id)
+            if (!center) throw new UnknownAreaError(id)
+            return repository().trainStationNear(center.lat, center.lon, STATION_METERS)
+        },
+
+        /** Stop areas by name; "… spoor 5" also offers that platform of the stations found. */
         searchStops(query: string): { id: string; name: string }[] {
-            return repository()
-                .searchAreas(query, STOP_SEARCH_LIMIT, config.board.sameStopMeters)
-                .map(({ id, name }) => ({ id, name }))
+            const areas = (text: string) =>
+                repository().searchAreas(text, STOP_SEARCH_LIMIT, config.board.sameStopMeters)
+            const typed = parsePlatformQuery(query)
+            if (!typed) return areas(query).map(({ id, name }) => ({ id, name }))
+
+            const platforms: { id: string; name: string }[] = []
+            for (const area of areas(typed.station)) {
+                const station = repository().trainStationNear(area.lat, area.lon, STATION_METERS)
+                const platform = station?.platforms.find(
+                    (candidate) => candidate.code.toLowerCase() === typed.code,
+                )
+                if (!station || !platform) continue
+                const place = platformPlace(station, platform)
+                if (!platforms.some((known) => known.id === place.id)) platforms.push(place)
+            }
+            const rest = areas(query).map(({ id, name }) => ({ id, name }))
+            return [...platforms, ...rest].slice(0, STOP_SEARCH_LIMIT)
         },
 
         /**

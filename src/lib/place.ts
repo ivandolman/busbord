@@ -27,3 +27,21 @@ export function isAreaId(value: string | null): value is string {
 export function isPlaceId(value: string | null): value is string {
     return value !== null && PlaceIdSchema.safeParse(value).success
 }
+
+/** "Utrecht Centraal, spoor 5": the origin you get by starting from a train platform. */
+export function platformPlace(
+    station: { name: string },
+    platform: { code: string; lat: number; lon: number },
+): { id: string; name: string } {
+    return {
+        id: pointId({ lat: platform.lat, lon: platform.lon }),
+        name: `${station.name}, spoor ${platform.code}`,
+    }
+}
+
+/** "utrecht centraal spoor 5" → the station part and the platform code; null without "spoor". */
+export function parsePlatformQuery(query: string): { station: string; code: string } | null {
+    const [, station, code] = /^(.*\S)\s+spoor\s*([0-9]+[a-z]?)$/i.exec(query.trim()) ?? []
+    if (!station || !code) return null
+    return { station, code: code.toLowerCase() }
+}

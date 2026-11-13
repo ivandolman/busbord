@@ -36,6 +36,7 @@ so tests inject fakes.
 | Which departures show, ranking, "Pak deze" | `features/board/build-board.ts`, `group.ts`, `board.service.ts`                             |
 | SQL queries on the timetable               | `features/board/board.repository.ts`                                                        |
 | Origin/destination → platforms, map points | `features/board/endpoint.ts`, `lib/place.ts`                                                |
+| Start from a train platform ("spoor")      | `network-map/platform-picker.tsx`, `hooks/use-train-station.ts`, `board.repository.ts`      |
 | Transfers (one change)                     | `features/board/transfers.ts`                                                               |
 | Realtime delays / alerts                   | `features/board/realtime.ts`, `alerts.ts`                                                   |
 | Walking routes and areas                   | `features/roads/walking.ts`, `router.ts`                                                    |
@@ -69,8 +70,9 @@ validated with `network-map/network-map.schema.ts` + `fetch-parsed.ts`.
 | `GET /api/board`                 | departures origin → destination, walks, realtime, alerts    | `boardService.getBoard`               |
 | `GET /api/departures`            | next hour from one stop (stop card)                         | `boardService.getStopBoard`           |
 | `GET /api/next-departures`       | per stop area, next ride per line towards `to` (map labels) | `boardService.getNextDepartures`      |
-| `GET /api/stops`                 | stop search by name                                         | `boardService.searchStops`            |
+| `GET /api/stops`                 | stop search by name; "… spoor 5" also offers that platform  | `boardService.searchStops`            |
 | `GET /api/place`                 | display name for an area id or `@lat,lon`                   | `boardService.getPlace`               |
+| `GET /api/station`               | train station near a place, with its platforms              | `boardService.getStation`             |
 | `GET /api/walk-area`             | area within walking distance                                | `boardService.getWalkArea`            |
 | `GET /api/walk-route`            | walking route between two points                            | `boardService.getWalkRoute`           |
 | `GET /api/network`               | every line and stop for the map (ETag)                      | `networkService.getNetworkJson`       |
@@ -130,4 +132,4 @@ Unit tests sit next to their source as `*.tests.ts` (`pnpm test`); `*.integratio
 run against the demo feed (`pnpm test:integration`). Covered: board (alerts, build-board,
 endpoint, group, stop-name, integration), gtfs (csv, download), network (corridors, patterns),
 roads (line-path, road-network, router), saved-routes, user-data, lib (auth, place, time),
-network-map/offset-path, network night lines.
+network-map/offset-path, network night lines, train station / platform places.

@@ -5,7 +5,10 @@ import SavedRouteList from "@/app/_components/saved-routes/saved-route-list"
 import { Button } from "@/components/ui/button"
 import { Icon } from "@/components/ui/icon"
 import type { SavedRoute } from "@/features/saved-routes/saved-routes"
+import { platformAt, useTrainStation } from "@/hooks/use-train-station"
+import { platformPlace } from "@/lib/place"
 
+import PlatformPicker from "./network-map/platform-picker"
 import PanelHeader from "./panel-header"
 import StopPicker, { type StopOption } from "./stop-picker"
 import SwapButton from "./swap-button"
@@ -39,6 +42,8 @@ export default function SearchPanel({
     onOpenRoute,
     onClose,
 }: SearchPanelProps) {
+    const station = useTrainStation(from?.id ?? null)
+
     return (
         <div className="flex flex-col gap-3">
             <PanelHeader title="Van en naar" onClose={onClose} />
@@ -60,6 +65,13 @@ export default function SearchPanel({
                 </div>
                 <SwapButton onClick={onSwap} disabled={!from && !to} />
             </div>
+            {station && (
+                <PlatformPicker
+                    station={station}
+                    selectedCode={platformAt(from?.id ?? null, station)?.code}
+                    onPick={(picked, platform) => onChange("from", platformPlace(picked, platform))}
+                />
+            )}
             <div className="grid grid-cols-2 gap-2">
                 {/* px-0: two buttons share the row, so the label gets every pixel. */}
                 <Button onClick={onLocate} className="px-0">

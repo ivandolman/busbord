@@ -1,16 +1,18 @@
-// Integration tests for finding the train station near a stop, on a small in-memory timetable
+// Integration tests for finding the train station near a stop and its platforms as places,
+// on a small in-memory timetable
 
 import assert from "node:assert"
 import { DatabaseSync } from "node:sqlite"
 import { describe, it } from "node:test"
 
 import { TimetableRepository } from "@/features/board/board.repository"
+import { createBoardService } from "@/features/board/board.service"
 import { CREATE_TABLES } from "@/features/gtfs/gtfs-tables"
 
 // --- HELPERS ---
 
 /** A station with trains at platforms 5 and 12, an unused platform 12a, and a bus stop next door. */
-function timetable(): TimetableRepository {
+function timetableDb(): DatabaseSync {
     const db = new DatabaseSync(":memory:")
     db.exec(CREATE_TABLES)
     const insert = (sql: string, ...rows: (string | number)[][]) => {
@@ -45,8 +47,10 @@ function timetable(): TimetableRepository {
         ["t1", 2, "p5"],
         ["t2", 1, "b1"],
     )
-    return new TimetableRepository(db)
+    return db
 }
+
+const timetable = () => new TimetableRepository(timetableDb())
 
 // --- TESTS ---
 
@@ -64,5 +68,30 @@ describe("trainStationNear", () => {
 
     it("finds nothing when no station is near", () => {
         assert.strictEqual(repository.trainStationNear(52.2, 5.3, 500), null)
+    })
+})
+
+describe("platforms as places", () => {
+    const db = timetableDb()
+    const service = createBoardService({ database: () => db, walker: () => null })
+
+    it("finds the station near a stop area or a map point", () => {
+        assert.strictEqual(service.getStation("bus")?.name, "Utrecht Centraal")
+        assert.strictEqual(service.getStation("@52.09050,5.11150")?.platforms.length, 2)
+        assert.strictEqual(service.getStation("@52.20000,5.30000"), null)
+    })
+
+    it("names a point on a platform after the platform", () => {
+        assert.strictEqual(service.getPlace("@52.09010,5.11020").name, "Utrecht Centraal, spoor 5")
+    })
+
+    it("offers the typed platform first in the search", () => {
+        assert.deepStrictEqual(service.searchStops("utrecht spoor 12")[0], {
+            id: "@52.08980,5.10950",
+            name: "Utrecht Centraal, spoor 12",
+        })
+        assert.ok(
+            service.searchStops("utrecht spoor 7").every((stop) => !stop.name.includes("spoor")),
+        )
     })
 })
