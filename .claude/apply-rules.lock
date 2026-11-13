@@ -1,7 +1,8 @@
 # apply-rules lockfile. Managed by sync.sh; commit it, do not edit it.
 # kind	name	path	sha256	library-commit
 bundle	claude	.claude/CLAUDE.md	79f6d05dff7311cd6aac90808ed59fd096a4fbedee3a755aaf705aedc83a4723	unknown
-bundle	claude	.claude/CONVENTIONS.md	a136dafa7c7d96b1e4dfb87adeed4e7454cb1599bd82ff3b5efc1d98dc8c3eef	unknown
+bundle	claude	.claude/CONVENTIONS-SETUP.md	44b026b8bd33c4420cb369081cbddf9e613a2c5a04e830da2220a7fc1769f8ec	3e2fa8f
+bundle	claude	.claude/CONVENTIONS.md	3589cbd8a01ccc4a2919168c73aac190ac5398a84197e197660e024ae4ded94f	3e2fa8f
 bundle	github	.github/PULL_REQUEST_TEMPLATE/bugfix.md	6dd51411db6b85c2dee5bdc47c580c6b237c8bb17d34ecd35b07a51cb781aa88	unknown
 bundle	github	.github/PULL_REQUEST_TEMPLATE/docs.md	8ff4f65eb107b1083baf4cac68f8e4226c9451d17bdd1a5e95ee0d7f79c8be35	unknown
 bundle	github	.github/PULL_REQUEST_TEMPLATE/feature.md	d66bdfe4d58adc20651c13f292df9ab3943816312ea6c5a9158dca91ba72df01	unknown
