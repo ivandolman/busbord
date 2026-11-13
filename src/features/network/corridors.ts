@@ -30,6 +30,13 @@ const TRIANGLE_METERS = 60
  * where a line ends just past the junction: drawn, it is a stray stub.
  */
 const STUB_METERS = 60
+/**
+ * A line's own dead end this short, away from where the line starts or ends, is snapping noise: its
+ * path wandered onto the other carriageway for one node and came straight back.
+ */
+const SPUR_METERS = 40
+/** A hop this many times longer than skipping its node is a sideways detour, not a bend. */
+const DETOUR_RATIO = 1.6
 /** A sharp back-and-forth with a leg this short is snapping noise. */
 const SPIKE_METERS = 15
 /** Straightens noise before rounding; corners left after it are real bends. */
@@ -260,6 +267,78 @@ function farthest(a: [number, number][], b: [number, number][]): number {
     return worst
 }
 
+/**
+ * Drops nodes a path only touches in a short sideways hop: A → B → A, or A → B → C where going
+ * through B is much longer than going from A to C. That is a path between two carriageways
+ * snapping to the far one for a node; kept, it draws a rung between both strands.
+ */
+function skipDetours(graph: CorridorGraph, nodes: number[]): number[] {
+    const kept = [nodes[0] as number]
+    // One pass, and never two hops in a row: repeated, it would eat a turning loop node by node.
+    let skipped = false
+    for (let i = 1; i < nodes.length; i++) {
+        const a = kept[kept.length - 1] as number
+        const b = nodes[i] as number
+        const c = nodes[i + 1]
+        if (c === undefined || skipped || graph.distance(a, b) >= SPUR_METERS) {
+            if (b !== a) kept.push(b)
+            skipped = false
+            continue
+        }
+        const back = a === c
+        // B → C → B is a hop out to C: B stays, C goes on the next step.
+        const sideways =
+            nodes[i + 2] !== b &&
+            graph.distance(b, c) < SPUR_METERS &&
+            graph.distance(a, b) + graph.distance(b, c) > DETOUR_RATIO * graph.distance(a, c)
+        if (back || sideways) {
+            skipped = true
+            if (back) i++
+            continue
+        }
+        kept.push(b)
+    }
+    return kept
+}
+
+/**
+ * Takes each line off short spurs where it dead-ends at a node that is not one of its terminals,
+ * and drops edges left without lines. Such spurs come from a path between two carriageways that
+ * snaps to the far one for a node; on the map they show as rungs between both strands. A spur is
+ * measured whole, up to where the line forks, so a real turn up a side street and back stays.
+ */
+function pruneLineSpurs(graph: CorridorGraph, terminals: Map<number, Set<number>>): void {
+    const lineEdges = (node: number, line: number) =>
+        [...(graph.edges[node] as Map<number, Edge>)].filter(([, edge]) => edge.lines.has(line))
+    for (let node = 0; node < graph.x.length; node++) {
+        const lines = new Set(
+            [...(graph.edges[node] as Map<number, Edge>).values()].flatMap((e) => [...e.lines]),
+        )
+        for (const line of lines) {
+            if (terminals.get(line)?.has(node)) continue
+            let onward = lineEdges(node, line)
+            if (onward.length !== 1) continue
+            const spur: Edge[] = []
+            let length = 0
+            let from = node
+            while (onward.length === 1 && length < SPUR_METERS) {
+                const [next, edge] = onward[0] as [number, Edge]
+                spur.push(edge)
+                length += edge.length
+                onward = lineEdges(next, line).filter(([neighbour]) => neighbour !== from)
+                from = next
+            }
+            if (length >= SPUR_METERS || onward.length < 2) continue
+            for (const edge of spur) edge.lines.delete(line)
+        }
+    }
+    for (let a = 0; a < graph.x.length; a++) {
+        for (const [b, edge] of [...(graph.edges[a] as Map<number, Edge>)]) {
+            if (edge.lines.size === 0) graph.removeEdge(a, b)
+        }
+    }
+}
+
 /** Douglas-Peucker on metric points. */
 function simplify(points: [number, number][], tolerance: number): [number, number][] {
     if (points.length <= 2) return points
@@ -469,9 +548,12 @@ export function buildCorridors(inputs: CorridorInput[]): Corridor[] {
     const rank = new Map(inputs.map((input, i) => [input.index, i]))
 
     const graph = new CorridorGraph()
+    const terminals = new Map<number, Set<number>>()
     for (const input of inputs) {
+        const ends = terminals.get(input.index) ?? new Set<number>()
+        terminals.set(input.index, ends)
         for (const path of input.paths) {
-            let previous = -1
+            const nodes: number[] = []
             let before: [number, number] | null = null
             for (const [lat, lon] of path) {
                 const x = toX(lon)
@@ -482,14 +564,21 @@ export function buildCorridors(inputs: CorridorInput[]): Corridor[] {
                 for (let step = 1; step <= steps; step++) {
                     const t = step / steps
                     const node = graph.nodeAt(bx + (x - bx) * t, by + (y - by) * t)
-                    if (node === previous) continue
-                    if (previous >= 0) graph.connect(previous, node, input.index)
-                    previous = node
+                    if (node !== nodes[nodes.length - 1]) nodes.push(node)
                 }
                 before = [x, y]
             }
+            const kept = skipDetours(graph, nodes)
+            for (let i = 1; i < kept.length; i++) {
+                graph.connect(kept[i - 1] as number, kept[i] as number, input.index)
+            }
+            if (kept.length > 0) {
+                ends.add(kept[0] as number)
+                ends.add(kept[kept.length - 1] as number)
+            }
         }
     }
+    pruneLineSpurs(graph, terminals)
 
     const position = (node: number): [number, number] => [
         (graph.sumX[node] as number) / (graph.count[node] as number),

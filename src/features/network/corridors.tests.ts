@@ -103,4 +103,59 @@ describe("buildCorridors", () => {
         ])
         assert.ok(own.some((corridor) => corridor.lines.includes(2)))
     })
+
+    it("drops rungs where a line between two carriageways snaps to the far one", () => {
+        // Carriageways 27 m apart: too far to snap together. Line 1 runs along the southern one,
+        // but every fourth point lies 16 m north, nearer the northern one.
+        const between: LatLon[] = Array.from({ length: 41 }, (_, i) => [
+            52 + (i % 4 === 2 ? 16 : 0) / 111_320,
+            5 + i * 0.00025,
+        ])
+        const corridors = buildCorridors([
+            { index: 0, paths: [road(0), road(27, true)] },
+            { index: 1, paths: [between] },
+        ])
+        const across = corridors.filter((corridor) => {
+            const lats = corridor.path.map(([lat]) => (lat - 52) * 111_320)
+            return Math.max(...lats) - Math.min(...lats) > 10
+        })
+        assert.deepStrictEqual(across, [])
+    })
+
+    it("drops rungs of a line that runs along both carriageways", () => {
+        // Line 0 runs both ways, one per carriageway; one way it strays towards the other one.
+        const between: LatLon[] = Array.from({ length: 41 }, (_, i) => [
+            52 + (i % 4 === 2 ? 16 : 0) / 111_320,
+            5 + i * 0.00025,
+        ])
+        const corridors = buildCorridors([
+            { index: 1, paths: [road(0), road(27, true)] },
+            { index: 0, paths: [road(27, true), between] },
+        ])
+        const across = corridors.filter((corridor) => {
+            const lats = corridor.path.map(([lat]) => (lat - 52) * 111_320)
+            return Math.max(...lats) - Math.min(...lats) > 10
+        })
+        assert.deepStrictEqual(across, [])
+    })
+
+    it("keeps a turning loop at the end of a line whole", () => {
+        // Out along one carriageway, back along the other, 27 m apart.
+        const out = road(0).filter(([, lon]) => lon <= 5.005)
+        const back = road(27, true).filter(([, lon]) => lon <= 5.005)
+        const corridors = buildCorridors([{ index: 0, paths: [[...out, ...back]] }])
+        const east = Math.max(
+            ...corridors.flatMap((corridor) => corridor.path.map(([, lon]) => lon)),
+        )
+        assert.ok(east > 5.0045)
+    })
+
+    it("keeps a short spur where a line starts or ends", () => {
+        const up = (meters: number): LatLon => [52 + meters / 111_320, 5.005]
+        const corridors = buildCorridors([
+            { index: 0, paths: [road(0)] },
+            { index: 1, paths: [[up(0), up(15), up(30)]] },
+        ])
+        assert.ok(corridors.some((corridor) => corridor.lines.includes(1)))
+    })
 })
