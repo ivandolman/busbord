@@ -55,7 +55,7 @@ async function shortcuts(): Promise<MetadataRoute.Manifest["shortcuts"]> {
 /** Lets the board be added to a phone's home screen and open like an app. */
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
     return {
-        name: "Bestemmingsbord",
+        name: "Busbord",
         short_name: "Bestemming",
         description: "Alle bussen en trams naar jouw bestemming op één vertrekbord.",
         start_url: "/",

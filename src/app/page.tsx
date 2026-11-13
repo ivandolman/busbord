@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
 export default function Page() {
     return (
         <main>
-            <h1 className="sr-only">Bestemmingsbord: alle bussen en trams naar je bestemming</h1>
+            <h1 className="sr-only">Busbord: alle bussen en trams naar je bestemming</h1>
             <Suspense>
                 <BoardApp loginEnabled={authMode() === "on"} />
             </Suspense>

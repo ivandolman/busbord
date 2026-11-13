@@ -23,7 +23,7 @@ interface LoginPageProps {
 
 // --- METADATA ---
 
-export const metadata = buildMetadata({ title: "Inloggen · Bestemmingsbord", noindex: true })
+export const metadata = buildMetadata({ title: "Inloggen · Busbord", noindex: true })
 
 // --- COMPONENT ---
 
@@ -47,7 +47,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 action="/api/login"
                 className="bg-background flex w-full max-w-sm flex-col gap-4 rounded-2xl p-6 shadow-[0_4px_20px_rgba(0,0,0,0.08)]"
             >
-                <h1 className="text-heading-xl">Bestemmingsbord</h1>
+                <h1 className="text-heading-xl">Busbord</h1>
                 <p className="text-body-m text-muted">
                     {one("out")
                         ? "Je bent uitgelogd."

@@ -1,6 +1,6 @@
 ---
 name: add-api-route
-description: Add or change an API endpoint in bestemmingsbord following the repo's layering (route → service → repository) with Zod on both ends. Use when creating a new /api/* route or adding parameters to an existing one.
+description: Add or change an API endpoint in busbord following the repo's layering (route → service → repository) with Zod on both ends. Use when creating a new /api/* route or adding parameters to an existing one.
 ---
 
 # Add or change an API route

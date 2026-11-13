@@ -1,6 +1,6 @@
 ---
 name: data-import
-description: Import or refresh the GTFS timetable, the OSM road network or the demo feed for bestemmingsbord, locally or on the Coolify server. Use when data is missing, stale, the schema changed, or the user asks to (re)import.
+description: Import or refresh the GTFS timetable, the OSM road network or the demo feed for busbord, locally or on the Coolify server. Use when data is missing, stale, the schema changed, or the user asks to (re)import.
 ---
 
 # Data import

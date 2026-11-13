@@ -1,6 +1,6 @@
 ---
 name: verify
-description: Run the project's checks (typecheck, lint, unit tests, optionally integration tests and build) with compact output. Use before committing or when asked to check, test or verify a change in bestemmingsbord.
+description: Run the project's checks (typecheck, lint, unit tests, optionally integration tests and build) with compact output. Use before committing or when asked to check, test or verify a change in busbord.
 ---
 
 # Verify

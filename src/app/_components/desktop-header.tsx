@@ -39,7 +39,7 @@ export default function DesktopHeader({
                 >
                     B
                 </span>
-                Bestemmingsbord
+                Busbord
             </p>
             <SearchBar
                 from={from}

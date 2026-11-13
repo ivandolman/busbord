@@ -1,4 +1,4 @@
-# Bestemmingsbord: production image (Coolify, or plain Docker). See "Deploy" in README.md.
+# Busbord: production image (Coolify, or plain Docker). See "Deploy" in README.md.
 # Timetable, road network and saved routes live in /app/data: mount a volume there.
 
 FROM node:22-alpine AS build

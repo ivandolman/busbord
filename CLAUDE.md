@@ -1,4 +1,4 @@
-# Bestemmingsbord: working notes for agents
+# Busbord: working notes for agents
 
 - **Code map:** read `docs/ARCHITECTURE.md` first to find files; do not scan the repo or read
   `README.md` whole (it is long; grep its "How it works" section for behaviour details).

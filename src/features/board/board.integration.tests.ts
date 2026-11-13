@@ -40,7 +40,7 @@ let db: DatabaseSync
 let repository: TimetableRepository
 
 before(async () => {
-    directory = mkdtempSync(join(tmpdir(), "bestemmingsbord-"))
+    directory = mkdtempSync(join(tmpdir(), "busbord-"))
     const zipPath = join(directory, "feed.zip")
     const dbPath = join(directory, "gtfs.sqlite")
     await writeDemoFeed(zipPath, "20261111", 3)

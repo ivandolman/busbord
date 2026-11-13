@@ -24,7 +24,7 @@ interface RootLayoutProps {
 // --- METADATA ---
 
 export const metadata: Metadata = buildMetadata({
-    title: "Bestemmingsbord",
+    title: "Busbord",
     description: "Alle bussen en trams naar jouw bestemming op één vertrekbord.",
 })
 

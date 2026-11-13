@@ -1,4 +1,4 @@
-// Bestemmingsbord service worker: keeps the app and the last answers available offline.
+// Busbord service worker: keeps the app and the last answers available offline.
 // Network first for pages and data (fresh when online), the cache when the network fails;
 // built assets (hashed names, never change) straight from the cache.
 const VERSION = "v2"

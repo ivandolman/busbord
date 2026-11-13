@@ -1,4 +1,4 @@
-# Bestemmingsbord
+# Busbord
 
 A departure board that starts from the destination. Pick where you are and where you want to
 go, and it lists every bus and tram that runs there directly, merged into one board, instead
@@ -102,9 +102,9 @@ login limiter uses.
 Plain Docker works the same way:
 
 ```bash
-docker build -t bestemmingsbord .
-docker run -d -p 3000:3000 -v bestemmingsbord-data:/app/data \
-  -e AUTH_PASSWORD=… -e AUTH_SECRET=… bestemmingsbord
+docker build -t busbord .
+docker run -d -p 3000:3000 -v busbord-data:/app/data \
+  -e AUTH_PASSWORD=… -e AUTH_SECRET=… busbord
 ```
 
 ## Layout
