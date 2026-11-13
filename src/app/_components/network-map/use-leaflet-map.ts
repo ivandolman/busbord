@@ -121,15 +121,24 @@ export function useLeafletMap({ mapStyle, pickTarget, onPick }: UseLeafletMapOpt
                 pick(target, place)
                 return
             }
-            const content = popupContent(
-                "Punt op de kaart",
-                "Gebruikt de haltes in de buurt van dit punt.",
-                null,
-                [
-                    { label: "Van hier", onClick: () => (pick("from", place), map.closePopup()) },
-                    { label: "Naar hier", onClick: () => (pick("to", place), map.closePopup()) },
+            const content = popupContent({
+                title: "Punt op de kaart",
+                detail: "Haltes rond dit punt",
+                badge: "pin",
+                actions: [
+                    {
+                        label: "Van hier",
+                        icon: "locate",
+                        onClick: () => (pick("from", place), map.closePopup()),
+                    },
+                    {
+                        label: "Naar hier",
+                        icon: "pin",
+                        onClick: () => (pick("to", place), map.closePopup()),
+                    },
                 ],
-            )
+                onClose: () => map.closePopup(),
+            })
             L.popup({ className: "card-popup", offset: [0, -4] })
                 .setLatLng(event.latlng)
                 .setContent(content)

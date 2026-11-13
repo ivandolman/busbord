@@ -53,11 +53,18 @@ interface IconProps {
     className?: string
 }
 
+// --- HELPERS ---
+
+/** Insets and mask of an icon's two nested boxes; shared with the DOM-built map popups. */
+export function iconLayers(name: IconName): { outer: string; inner: string; mask: string } {
+    const [outer, inner] = GEOMETRY[name]
+    return { outer, inner, mask: `url(/icons/${name}.svg) center / 100% 100% no-repeat` }
+}
+
 // --- COMPONENT ---
 
 export function Icon({ name, size = 24, className }: IconProps) {
-    const [outer, inner] = GEOMETRY[name]
-    const mask = `url(/icons/${name}.svg) center / 100% 100% no-repeat`
+    const { outer, inner, mask } = iconLayers(name)
     return (
         <span
             aria-hidden="true"
