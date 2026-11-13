@@ -131,4 +131,27 @@ describe("road router", () => {
         const drive = walking.route("road", [52.001, 5.0], [52.002, 5.0032])
         assert.strictEqual(passesThrough(drive ?? [], 52.002, 5.0), true)
     })
+
+    it("starts a walk on the connected paths, not on an island in the map data", () => {
+        // A loose path (8 - 9), like a station platform drawn without its stairs, 22 m north of
+        // the bottom street. A point on it would otherwise reach nothing at all.
+        const base = ladder()
+        const island: RoadNetwork = {
+            lat: Float64Array.from([...base.lat, 52.0012, 52.0012]),
+            lon: Float64Array.from([...base.lon, 5.0008, 5.001]),
+            edgeFrom: Uint32Array.from([...base.edgeFrom, 8]),
+            edgeTo: Uint32Array.from([...base.edgeTo, 9]),
+            edgeClass: Uint8Array.from([...base.edgeClass, FOOT_CLASS]),
+            edgeOneway: Uint8Array.from([...base.edgeOneway, 0]),
+        }
+        const [walk] = new RoadRouter(island).walkDistances(
+            [52.0012, 5.0009],
+            [[52.002, 5.0016]],
+            2000,
+        )
+        assert.ok(
+            typeof walk === "number" && walk < 250,
+            `expected a walk under 250 m, got ${walk}`,
+        )
+    })
 })

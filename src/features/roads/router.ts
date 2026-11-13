@@ -17,6 +17,12 @@ const MAX_SNAP_METERS = 120
 /** How strongly the route is pulled towards the hint (the feed's own shape). */
 const HINT_FULL_PENALTY_METERS = 150
 const MAX_POPS = 200_000
+/**
+ * A walk starts and ends on paths that belong to a connected network this large. Smaller pieces
+ * are islands in the map data (a station platform, a square without its connections): snapping
+ * to one leaves every stop unreachable.
+ */
+const MIN_WALK_NETWORK_VERTICES = 500
 
 // --- INTERFACES ---
 
@@ -118,6 +124,8 @@ export class RoadRouter {
     private readonly previous: Int32Array
     private readonly stamp: Uint32Array
     private round = 0
+    /** Per vertex, the size of the connected walking network it belongs to, and the largest. */
+    private walkNetworks: { size: Uint32Array; largest: number } | null = null
 
     constructor(private readonly network: RoadNetwork) {
         const middle =
@@ -227,9 +235,53 @@ export class RoadRouter {
         return { twoWay, arcStart, arcTo, arcCost, grid, edges }
     }
 
-    /** Nearest point on any edge of the mode within MAX_SNAP_METERS. */
+    /** Sizes of the connected walking networks, by union-find over the walking graph. */
+    private walkNetworkSizes(): { size: Uint32Array; largest: number } {
+        if (this.walkNetworks) return this.walkNetworks
+        const graph = this.graph("foot")
+        const vertices = this.network.lat.length
+        const parent = new Int32Array(vertices).map((_, i) => i)
+        const find = (v: number): number => {
+            while (parent[v] !== v) {
+                parent[v] = parent[parent[v] as number] as number
+                v = parent[v] as number
+            }
+            return v
+        }
+        for (let v = 0; v < vertices; v++) {
+            for (
+                let arc = graph.arcStart[v] as number;
+                arc < (graph.arcStart[v + 1] as number);
+                arc++
+            ) {
+                const a = find(v)
+                const b = find(graph.arcTo[arc] as number)
+                if (a !== b) parent[a] = b
+            }
+        }
+        const rootSize = new Uint32Array(vertices)
+        for (let v = 0; v < vertices; v++) rootSize[find(v)]!++
+        const size = new Uint32Array(vertices)
+        let largest = 0
+        for (let v = 0; v < vertices; v++) {
+            size[v] = rootSize[find(v)] as number
+            largest = Math.max(largest, size[v] as number)
+        }
+        this.walkNetworks = { size, largest }
+        return this.walkNetworks
+    }
+
+    /**
+     * Nearest point on any edge of the mode within MAX_SNAP_METERS. On foot, the nearest edge of
+     * a large connected network wins over a closer island; an island only when nothing else is near.
+     */
     snap(mode: RouteMode, point: LatLon): Snap | null {
         const graph = this.graph(mode)
+        const networks = mode === "foot" ? this.walkNetworkSizes() : null
+        const minimum = networks ? Math.min(MIN_WALK_NETWORK_VERTICES, networks.largest) : 0
+        const connected = (v: number) => !networks || (networks.size[v] as number) >= minimum
+        let island: Snap | null = null
+        let islandDistance = MAX_SNAP_METERS
         const { lat, lon, edgeFrom, edgeTo, edgeOneway, edgeClass } = this.network
         const cy = Math.floor(point[0] / CELL_DEGREES)
         const cx = Math.floor(point[1] / CELL_DEGREES)
@@ -258,9 +310,9 @@ export class RoadRouter {
                     const qLat = (lat[a] as number) + t * dy
                     const qLon = (lon[a] as number) + t * ((lon[b] as number) - (lon[a] as number))
                     const distance = this.meters(point[0], point[1], qLat, qLon)
-                    if (distance < bestDistance) {
-                        bestDistance = distance
-                        best = {
+                    const onIsland = !connected(a)
+                    if (distance < (onIsland ? islandDistance : bestDistance)) {
+                        const snap: Snap = {
                             point: [qLat, qLon],
                             from: a,
                             to: b,
@@ -270,11 +322,18 @@ export class RoadRouter {
                                 ? 1
                                 : (EDGE_CLASSES[edgeClass[e] as number]?.[1] ?? 1),
                         }
+                        if (onIsland) {
+                            island = snap
+                            islandDistance = distance
+                        } else {
+                            best = snap
+                            bestDistance = distance
+                        }
                     }
                 }
             }
         }
-        return best
+        return best ?? island
     }
 
     /** Squared metres from a point to the hint polyline, capped. */
