@@ -1,6 +1,7 @@
 // Groups ranked departures into what the board shows: one pick, fallbacks, one row per line
 
 import type { Departure, Mode } from "./board.types"
+import { arrivesClearlySooner, departureWalkSeconds } from "./build-board"
 
 // --- INTERFACES ---
 
@@ -19,9 +20,9 @@ export interface DepartureGroup {
 
 export interface BoardOverview {
     /**
-     * The departure to take: the one that gets you there first. Useful departures never leave
-     * earlier yet arrive later than another, so this is also the soonest you need to act on; on a
-     * tie in arrival the later one wins (more time, often less walking).
+     * The departure to take: the one that gets you there first, except that one with less walking
+     * may arrive up to the "Minder lopen mag langer duren" margin later. Among equals the later
+     * one wins (more time, often less walking).
      */
     pick: Departure | null
     /** Useful departures you set off for after the pick, any line. */
@@ -51,14 +52,24 @@ export function overview(
     departures: Departure[],
     originName: string,
     alternatives = 2,
+    tieSeconds = 0,
 ): BoardOverview {
     const useful = departures.filter(isUseful).sort((a, b) => a.leaveAt - b.leaveAt)
+    const earliest = Math.min(...useful.map((departure) => departure.doorArrival))
     let pick: Departure | null = null
     for (const departure of useful) {
         if (
+            departure.doorArrival > earliest &&
+            useful.some((other) => arrivesClearlySooner(other, departure, tieSeconds))
+        )
+            continue
+        if (
             !pick ||
-            departure.doorArrival < pick.doorArrival ||
-            (departure.doorArrival === pick.doorArrival && departure.leaveAt > pick.leaveAt)
+            departureWalkSeconds(departure) < departureWalkSeconds(pick) ||
+            (departureWalkSeconds(departure) === departureWalkSeconds(pick) &&
+                (departure.doorArrival < pick.doorArrival ||
+                    (departure.doorArrival === pick.doorArrival &&
+                        departure.leaveAt > pick.leaveAt)))
         ) {
             pick = departure
         }

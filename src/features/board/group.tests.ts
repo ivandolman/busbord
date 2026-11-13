@@ -55,4 +55,34 @@ describe("board overview", () => {
         assert.strictEqual(result.groups[2]?.best?.tripId, "28-900")
         assert.strictEqual(result.groups[0]?.departures.length, 2)
     })
+
+    describe("less walking may arrive a little later", () => {
+        // 12 walks 8 minutes and gets you there 1 minute sooner than 22, which walks 2 minutes.
+        const walky = { ...departure("12", 600, 1800, "Zuid"), walkToSeconds: 480, leaveAt: 120 }
+        const calm = {
+            ...departure("22", 180, 1740, "Noord"),
+            walkToSeconds: 120,
+            leaveAt: 60,
+            doorArrival: 1860,
+        }
+
+        it("picks the calmer bus within the margin", () => {
+            const ranked = rankDepartures([walky, calm], 180)
+            assert.strictEqual(ranked.find((d) => d.line === "22")?.overtakenBy, null)
+            assert.strictEqual(overview(ranked, "Utrecht", 2, 180).pick?.line, "22")
+        })
+
+        it("picks the quickest without a margin", () => {
+            const ranked = rankDepartures([walky, calm], 0)
+            assert.strictEqual(ranked.find((d) => d.line === "22")?.overtakenBy, "12")
+            assert.strictEqual(overview(ranked, "Utrecht", 2, 0).pick?.line, "12")
+        })
+
+        it("picks the quickest when the calmer bus is later than the margin", () => {
+            const late = { ...calm, doorArrival: 2040 }
+            const ranked = rankDepartures([walky, late], 180)
+            assert.strictEqual(ranked.find((d) => d.line === "22")?.overtakenBy, "12")
+            assert.strictEqual(overview(ranked, "Utrecht", 2, 180).pick?.line, "12")
+        })
+    })
 })

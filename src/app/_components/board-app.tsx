@@ -127,7 +127,12 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
     const trip = useShownTrip(fromId, toId, currentBoard)
     // The map draws a shared road in the colour of the line the board says to take.
     const advised = currentBoard
-        ? overview(currentBoard.departures, currentBoard.origin.name, undefined, currentBoard.walkTieSeconds).pick
+        ? overview(
+              currentBoard.departures,
+              currentBoard.origin.name,
+              undefined,
+              currentBoard.walkTieSeconds,
+          ).pick
         : null
     // A new route drops the ride shown, and with it the trip panel.
     const visiblePanel: Panel = panel === "trip" && !trip.shown ? "board" : panel

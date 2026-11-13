@@ -185,13 +185,32 @@ export function toDeparture(
     }
 }
 
+/** Seconds on foot for a departure, both ends together. */
+export const departureWalkSeconds = (departure: Departure) =>
+    departure.walkToSeconds + departure.walkFromSeconds
+
+/**
+ * Whether `other` is a better choice than `departure` by arrival alone: it arrives sooner, and
+ * not merely by less than `tieSeconds` while walking more ("Minder lopen mag langer duren").
+ */
+export function arrivesClearlySooner(
+    other: Departure,
+    departure: Departure,
+    tieSeconds: number,
+): boolean {
+    if (other.doorArrival >= departure.doorArrival) return false
+    const walksMore = departureWalkSeconds(other) > departureWalkSeconds(departure)
+    return !(walksMore && departure.doorArrival - other.doorArrival < tieSeconds)
+}
+
 /**
  * Orders departures the way a traveller reads a board (by departure) and flags the ones that are
  * a worse choice: another one you set off for no earlier still gets you there sooner, counting
- * the walks at both ends. Cancelled trips and ones you cannot walk to in time neither overtake
- * nor get "first there".
+ * the walks at both ends. Arriving less than `tieSeconds` sooner does not count when it takes
+ * more walking. Cancelled trips and ones you cannot walk to in time neither overtake nor get
+ * "first there".
  */
-export function rankDepartures(departures: Departure[]): Departure[] {
+export function rankDepartures(departures: Departure[], tieSeconds = 0): Departure[] {
     const sorted = [...departures].sort(
         (a, b) => a.expectedDeparture - b.expectedDeparture || a.doorArrival - b.doorArrival,
     )
@@ -208,7 +227,10 @@ export function rankDepartures(departures: Departure[]): Departure[] {
         let overtaker: Departure | null = null
         for (const other of usable) {
             if (other === departure) continue
-            if (other.leaveAt >= departure.leaveAt && other.doorArrival < departure.doorArrival) {
+            if (
+                other.leaveAt >= departure.leaveAt &&
+                arrivesClearlySooner(other, departure, tieSeconds)
+            ) {
                 if (!overtaker || other.doorArrival < overtaker.doorArrival) overtaker = other
             }
         }

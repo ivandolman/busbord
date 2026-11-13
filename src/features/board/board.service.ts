@@ -29,6 +29,7 @@ import type {
 } from "./board.types"
 import {
     LATE_DEPARTURE_GRACE_SECONDS,
+    PAIR_TIE_SECONDS,
     pickBestPairPerTrip,
     rankDepartures,
     STRAIGHT_LINE_DETOUR,
@@ -209,6 +210,7 @@ export async function getBoard(
             )
             // The grace window pulled in vehicles that really have left; drop those again.
             .filter((departure) => departure.expectedDeparture >= nowSeconds - 30),
+        request.walkTieSeconds ?? PAIR_TIE_SECONDS,
     ).slice(0, board.maxDepartures)
 
     return {
@@ -217,6 +219,7 @@ export async function getBoard(
         generatedAt: nowSeconds,
         realtime: realtime === null ? "disabled" : snapshot === null ? "unavailable" : "live",
         walkIncluded: request.includeWalking,
+        walkTieSeconds: request.walkTieSeconds ?? PAIR_TIE_SECONDS,
         summary: summarise(departures, nowSeconds),
         departures,
         alerts: await boardAlerts(request.alerts ?? null, trips, origin, destination, nowSeconds),

@@ -95,6 +95,8 @@ export interface Board {
     generatedAt: number
     realtime: "live" | "unavailable" | "disabled"
     walkIncluded: boolean
+    /** "Minder lopen mag langer duren": less walking may arrive up to this much later. */
+    walkTieSeconds: number
     summary: BoardSummary
     departures: Departure[]
     /** Diversions and other notices about these lines or stops, active now. */

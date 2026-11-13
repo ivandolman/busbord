@@ -170,7 +170,9 @@ values in `src/styles/theme/colors.css`, and the base map, which has no dark ver
    along the streets (`/api/walk-route`). The arrival shown is at the place you asked for, and a bus
    you cannot walk to in time is greyed out. One you set off for no later than another yet
    arrive after it is marked "Ingehaald door …", so "take the first one that is not greyed out"
-   is always right (`src/features/board/build-board.ts`).
+   is always right (`src/features/board/build-board.ts`). The "Minder lopen mag langer duren"
+   margin applies here too: a bus with less walking that arrives less than that margin later is
+   not overtaken, and it becomes the pick.
    The board shows this as one "Pak deze" card (the departure that gets you there first; on a
    tie the one you can leave for later) with the next fallbacks, and below it every line and
    direction once with its next times; lines that are always beaten fold away

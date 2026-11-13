@@ -49,7 +49,9 @@ async function notify(title: string, body: string, url: string) {
  */
 export function useLeaveAlert(board: Board | null, route: SavedRoute | null, now: number) {
     const enabled = useLeaveAlertEnabled()
-    const pick = board ? overview(board.departures, board.origin.name).pick : null
+    const pick = board
+        ? overview(board.departures, board.origin.name, undefined, board.walkTieSeconds).pick
+        : null
     const active = Boolean(
         enabled && route?.schedule && isScheduledAt(route.schedule, new Date(now * 1000)),
     )

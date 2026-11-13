@@ -53,7 +53,12 @@ export default function BoardView({ board, now, onShowRoute }: BoardViewProps) {
         )
     }
 
-    const { pick, then, groups } = overview(board.departures, board.origin.name)
+    const { pick, then, groups } = overview(
+        board.departures,
+        board.origin.name,
+        undefined,
+        board.walkTieSeconds,
+    )
     const useful = groups.filter((group) => group.best)
     const slower = groups.filter((group) => !group.best)
 
