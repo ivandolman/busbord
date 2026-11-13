@@ -56,7 +56,7 @@ async function shortcuts(): Promise<MetadataRoute.Manifest["shortcuts"]> {
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
     return {
         name: "Busbord",
-        short_name: "Bestemming",
+        short_name: "Busbord",
         description: "Alle bussen en trams naar jouw bestemming op één vertrekbord.",
         start_url: "/",
         display: "standalone",

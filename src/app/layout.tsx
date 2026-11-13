@@ -23,10 +23,14 @@ interface RootLayoutProps {
 
 // --- METADATA ---
 
-export const metadata: Metadata = buildMetadata({
-    title: "Busbord",
-    description: "Alle bussen en trams naar jouw bestemming op één vertrekbord.",
-})
+export const metadata: Metadata = {
+    ...buildMetadata({
+        title: "Busbord",
+        description: "Alle bussen en trams naar jouw bestemming op één vertrekbord.",
+    }),
+    // The label under the iOS home-screen icon
+    appleWebApp: { title: "Busbord" },
+}
 
 export const viewport: Viewport = {
     width: "device-width",
