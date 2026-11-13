@@ -1,4 +1,4 @@
-// "Looproute op kaart" ("Knop Looproute"), only when the departure has a walk to show
+// "Route" button (walk route on the map), only when the departure has a walk to show
 
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -52,10 +52,11 @@ export default function RouteButton({
         <button
             type="button"
             onClick={() => onShowRoute(departure)}
+            aria-label="Looproute op kaart"
             className={cn(routeButtonVariants({ variant }), className)}
         >
             {variant === "inverted" && <Icon name="walk" size={18} />}
-            Looproute op kaart
+            Route
         </button>
     )
 }

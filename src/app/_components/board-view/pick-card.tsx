@@ -36,13 +36,23 @@ export default function PickCard({ pick, then, board, now, onShowRoute }: PickCa
 
     return (
         <div className="bg-dark text-on-dark flex flex-col items-start gap-2 rounded-2xl p-4">
-            <p className="text-label-xs uppercase">Pak deze</p>
-            <div className="flex items-center gap-3">
-                <LineBadge line={pick.line} mode={pick.mode} size="lg" />
-                <p className="text-heading-l min-w-0">
-                    <span className="sr-only">richting </span>→{" "}
-                    {pick.headsign ? shortHeadsign(pick.headsign, board.origin.name) : "?"}
-                </p>
+            <div className="flex w-full items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-col gap-2">
+                    <p className="text-label-xs uppercase">Pak deze</p>
+                    <div className="flex items-center gap-3">
+                        <LineBadge line={pick.line} mode={pick.mode} size="lg" />
+                        <p className="text-heading-l min-w-0">
+                            <span className="sr-only">richting </span>→{" "}
+                            {pick.headsign ? shortHeadsign(pick.headsign, board.origin.name) : "?"}
+                        </p>
+                    </div>
+                </div>
+                <RouteButton
+                    departure={pick}
+                    onShowRoute={onShowRoute}
+                    variant="inverted"
+                    className="shrink-0"
+                />
             </div>
             <p className="flex flex-wrap items-baseline gap-x-2">
                 <span className="text-figure-l tabular-nums">
@@ -58,7 +68,6 @@ export default function PickCard({ pick, then, board, now, onShowRoute }: PickCa
             </p>
             <p className="text-body-s">{facts.filter(Boolean).join(" · ")}</p>
             {walking && <p className="text-body-s">{walking}</p>}
-            <RouteButton departure={pick} onShowRoute={onShowRoute} variant="inverted" />
             {then.length > 0 && (
                 <p className="border-on-dark/25 text-body-s flex w-full flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2.5">
                     <span>Daarna</span>
