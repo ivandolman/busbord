@@ -94,6 +94,7 @@ src/app/
   page.tsx, layout.tsx   home route (BoardApp), root layout
   login/page.tsx         password form
   manifest.ts            PWA manifest, saved routes as shortcuts
+  icon.svg, apple-icon.png  app icon (SVG for browsers, 180px PNG for the iOS home screen)
   api/*/route.ts         see table above
   _components/           app UI (client): board-app, board-panel, search-panel, search-bar,
                          stop-picker, place-option, trip-view, trip-step, map-controls, desktop-header, …
