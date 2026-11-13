@@ -13,10 +13,8 @@ import { offsetPath, type ScreenPoint } from "./offset-path"
 /** Per zoom level from 11 up. Busier roads get wider strokes, between these widths. */
 const MIN_PIXELS = [1.5, 2, 2.5, 3, 3.5]
 const MAX_PIXELS = [3.5, 4.5, 6, 7.5, 9]
-/** A line in focus, in its own colour. */
+/** Lines in focus: searched, or ridden. */
 const FOCUS_PIXELS = [3, 3.5, 4, 5, 6]
-/** A bundle of lines in focus never gets wider than this; they move closer together instead. */
-const MAX_BUNDLE_PIXELS = [8, 12, 20, 30, 42]
 
 /** Roads busier than this share of all roads get the widest stroke. */
 const BUSY_PERCENTILE = 0.9
@@ -28,7 +26,7 @@ const KINDS = ["rail", "bus", "night", "ferry"] as const
 
 type Kind = (typeof KINDS)[number]
 
-/** One stroke along one corridor: a mode's lines together, or one line in focus. */
+/** One stroke along one corridor: a mode's lines together, or every line in focus. */
 export interface Stripe {
     lines: NetworkLine[]
     layer: L.Polyline
@@ -92,19 +90,17 @@ function project(map: L.Map, corridor: Corridor, zoom: number): ScreenPoint[] {
     return entry.points
 }
 
-/** What is drawn along one corridor: each line in focus, or else each mode once. */
+/** What is drawn along one corridor: one stroke for the lines in focus, or else one per mode. */
 function strokeGroups(
     lines: NetworkLine[],
     focus: boolean,
     colors: { night: string; edge: string },
 ): StrokeGroup[] {
     if (focus) {
-        return lines.map((line) => ({
-            lines: [line],
-            color: lineColor(line),
-            trips: 0,
-            night: false,
-        }))
+        // In the colour of the busiest line, a day line where there is one.
+        const day = lines.filter((line) => kindOf(line) !== "night")
+        const shown = (day.length > 0 ? day : lines).reduce((a, b) => (b.trips > a.trips ? b : a))
+        return [{ lines, color: lineColor(shown), trips: 0, night: false }]
     }
     return KINDS.map((kind) => ({ kind, ofKind: lines.filter((line) => kindOf(line) === kind) }))
         .filter(({ ofKind }) => ofKind.length > 0)
@@ -123,10 +119,11 @@ function strokeGroups(
 // --- SERVICE ---
 
 /**
- * Draws every corridor into `group`. Without a focus (`visible` null) each mode is one stroke in
- * the colour of its busiest line, as wide as the road is busy; the stops show which lines run there. With a focus, only
- * those lines, each in its own colour, side by side where they share a road. Edges go in first,
- * so each stroke's edge shows between it and its neighbour.
+ * Draws every corridor into `group`, one stroke per road however many lines share it: the stops
+ * and a tap on the stroke say which lines run there. Without a focus (`visible` null) each mode
+ * gets a stroke in the colour of its busiest line, as wide as the road is busy. With a focus,
+ * only the lines in focus, as one stroke in the colour of the busiest of them. Edges go in first,
+ * so where modes lie side by side each stroke's edge shows between it and its neighbour.
  */
 export function drawStripes(
     map: L.Map,
@@ -196,14 +193,9 @@ export function placeStripes(map: L.Map, stripes: Stripe[]): void {
         const { siblings } = stripe
         if (done.has(siblings)) continue
         done.add(siblings)
-        let widths = siblings.map((sibling) => strokeWidth(sibling, zoom))
+        const widths = siblings.map((sibling) => strokeWidth(sibling, zoom))
         // Neighbours overlap by half an edge, leaving a thin edge line between their colours.
-        let total = widths.reduce((sum, width) => sum + width + edge / 2, 0)
-        const limit = MAX_BUNDLE_PIXELS[level(zoom)] as number
-        if (stripe.focus && total > limit) {
-            widths = widths.map((width) => Math.max(1, (width * limit) / total))
-            total = limit
-        }
+        const total = widths.reduce((sum, width) => sum + width + edge / 2, 0)
         const points = project(map, stripe.corridor, zoom)
         let left = -total / 2
         siblings.forEach((sibling, i) => {

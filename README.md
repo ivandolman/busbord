@@ -182,8 +182,9 @@ values in `globals.css`, and the base map, which has no dark version, is shown i
    and every line along it become one centre line; knots at junctions are folded away and bends rounded (`src/features/network/corridors.ts`, built
    once per database, ~1.5 s). Without a search or selection each road is one calm stroke per
    mode in the colour of its busiest line (night buses dashed), as wide as the road is busy; the stops' badges
-   say which lines run there. A searched or reachable line is drawn in its own colour, side by
-   side with others in focus on the same road (`src/app/_components/network-map/bundles.ts`).
+   say which lines run there. Searched, reachable or ridden lines are one stroke per road
+   too, in the colour of the busiest of them; tapping a stroke lists every line on it
+   (`src/app/_components/network-map/bundles.ts`).
    The map only shows lines
    that are useful for the selection (today, without changing): with only an origin the
    lines leaving it, with only a destination the lines arriving there, with both only the
