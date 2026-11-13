@@ -1,4 +1,4 @@
-// The saved routes as chips; one tap opens the board again
+// The saved routes as chips; one tap opens the board again, a tap on the open one clears it
 
 "use client"
 
@@ -31,6 +31,7 @@ const chipVariants = cva(
 interface SavedRouteListProps {
     fromId: string | null
     toId: string | null
+    /** Opens the route, or clears it when it is the one on screen. */
     onOpen: (route: SavedRoute) => void
 }
 
@@ -51,7 +52,7 @@ export default function SavedRouteList({ fromId, toId, onOpen }: SavedRouteListP
                             <button
                                 type="button"
                                 onClick={() => onOpen(route)}
-                                aria-current={active ? "true" : undefined}
+                                aria-pressed={active}
                                 title={`${route.from.name} → ${route.to.name}`}
                                 className="min-h-11 min-w-0 px-3 py-1.5 text-left"
                             >

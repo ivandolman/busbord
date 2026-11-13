@@ -15,6 +15,7 @@ interface DesktopHeaderProps {
     showSavedRoutes: boolean
     onOpenSearch: () => void
     onSwap: () => void
+    onClear: () => void
     onOpenRoute: (route: SavedRoute) => void
 }
 
@@ -26,6 +27,7 @@ export default function DesktopHeader({
     showSavedRoutes,
     onOpenSearch,
     onSwap,
+    onClear,
     onOpenRoute,
 }: DesktopHeaderProps) {
     return (
@@ -39,7 +41,13 @@ export default function DesktopHeader({
                 </span>
                 Bestemmingsbord
             </p>
-            <SearchBar from={from} to={to} onOpen={onOpenSearch} onSwap={onSwap} />
+            <SearchBar
+                from={from}
+                to={to}
+                onOpen={onOpenSearch}
+                onSwap={onSwap}
+                onClear={onClear}
+            />
             {showSavedRoutes && (
                 <SavedRouteList
                     fromId={from?.id ?? null}

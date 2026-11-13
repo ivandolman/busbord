@@ -103,6 +103,17 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
         open("board", "peek")
     }
 
+    /** Tapping the saved route already on screen clears it again. */
+    const toggleRoute = (route: SavedRoute) => {
+        if (sameRoute(route, fromId, toId)) clearRoute()
+        else openRoute(route)
+    }
+
+    const clearRoute = () => {
+        updateUrl({ from: null, to: null })
+        open("board", "peek")
+    }
+
     const autoOpened = useScheduledRoute(fromId, toId, openRoute)
     const { locate, failed: locationFailed } = useLocate((place) => pick("from", place))
 
@@ -158,7 +169,7 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
                     setPickTarget(!fromId ? "from" : "to")
                     backToBoard()
                 }}
-                onOpenRoute={openRoute}
+                onOpenRoute={toggleRoute}
                 onClose={backToBoard}
             />
         ) : visiblePanel === "settings" ? (
@@ -180,7 +191,7 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
                 now={now}
                 autoOpened={autoOpened}
                 onOpenSearch={openSearch}
-                onOpenRoute={openRoute}
+                onOpenRoute={toggleRoute}
                 onShowRoute={showRoute}
             />
         )
@@ -200,7 +211,8 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
                         showSavedRoutes={visiblePanel === "board"}
                         onOpenSearch={openSearch}
                         onSwap={swap}
-                        onOpenRoute={openRoute}
+                        onClear={clearRoute}
+                        onOpenRoute={toggleRoute}
                     />
                 }
             >
@@ -227,6 +239,7 @@ export default function BoardApp({ loginEnabled = false }: BoardAppProps) {
                     picking={pickTarget !== null}
                     onOpenSearch={openSearch}
                     onSwap={swap}
+                    onClear={clearRoute}
                     onOpenSettings={() => open("settings", "full")}
                     onLocate={locate}
                     onToggleLineSearch={() => setLineSearchOpen((shown) => !shown)}

@@ -22,6 +22,7 @@ interface MapControlsProps {
     picking: boolean
     onOpenSearch: () => void
     onSwap: () => void
+    onClear: () => void
     onOpenSettings: () => void
     onLocate: () => void
     onToggleLineSearch: () => void
@@ -74,6 +75,7 @@ export default function MapControls({
     picking,
     onOpenSearch,
     onSwap,
+    onClear,
     onOpenSettings,
     onLocate,
     onToggleLineSearch,
@@ -87,6 +89,7 @@ export default function MapControls({
                 to={to}
                 onOpen={onOpenSearch}
                 onSwap={onSwap}
+                onClear={onClear}
                 className="absolute top-[calc(env(safe-area-inset-top)+0.75rem)] right-[max(1rem,env(safe-area-inset-right))] left-[max(1rem,env(safe-area-inset-left))] z-[1050] lg:hidden"
             />
             <div

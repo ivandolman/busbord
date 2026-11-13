@@ -1,4 +1,4 @@
-// Search pill over the map ("Zoekpil"): opens "Van en naar", the round button swaps
+// Search pill over the map ("Zoekpil"): opens "Van en naar", the cross clears, the round button swaps
 
 import { Icon } from "@/components/ui/icon"
 import { cn } from "@/lib/utils"
@@ -17,6 +17,8 @@ interface SearchBarProps {
     to: SearchBarPlace | null
     onOpen: () => void
     onSwap: () => void
+    /** Drops both places, back to "Waar wil je heen?". */
+    onClear: () => void
     className?: string
 }
 
@@ -34,7 +36,14 @@ function titleOf(from: SearchBarPlace | null, to: SearchBarPlace | null): string
 
 // --- COMPONENT ---
 
-export default function SearchBar({ from, to, onOpen, onSwap, className }: SearchBarProps) {
+export default function SearchBar({
+    from,
+    to,
+    onOpen,
+    onSwap,
+    onClear,
+    className,
+}: SearchBarProps) {
     return (
         <div
             className={cn(
@@ -61,6 +70,17 @@ export default function SearchBar({ from, to, onOpen, onSwap, className }: Searc
                     )}
                 </span>
             </button>
+            {(from || to) && (
+                <button
+                    type="button"
+                    onClick={onClear}
+                    aria-label="Wis route"
+                    title="Wis route"
+                    className="text-muted hover:text-foreground flex size-11 shrink-0 items-center justify-center rounded-full"
+                >
+                    <Icon name="x" size={20} />
+                </button>
+            )}
             <SwapButton onClick={onSwap} disabled={!from && !to} />
         </div>
     )
