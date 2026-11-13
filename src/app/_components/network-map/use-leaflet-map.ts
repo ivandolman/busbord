@@ -110,6 +110,10 @@ export function useLeafletMap({ mapStyle, pickTarget, onPick }: UseLeafletMapOpt
     useEffect(() => {
         if (!map) return
         const onClick = (event: L.LeafletMouseEvent) => {
+            // A tap on a button in the stop card closes the card before the click reaches the
+            // map: the button is gone from the page, so Leaflet no longer sees it was in a popup.
+            const clicked = event.originalEvent.target
+            if (clicked instanceof Node && !clicked.isConnected) return
             const id = pointId({ lat: event.latlng.lat, lon: event.latlng.lng })
             const place = { id, name: "Punt op de kaart" }
             const target = currentPickTarget()
