@@ -1,6 +1,7 @@
 // Network service: every line and stop for the map, and what is reachable from the current selection
 
 import { createHash } from "node:crypto"
+
 import type { DatabaseSync } from "node:sqlite"
 
 import { TimetableRepository } from "@/features/board/board.repository"
@@ -10,6 +11,7 @@ import { stopNameKey } from "@/features/board/stop-name"
 import { getWalker, type Walker } from "@/features/roads/walking"
 import {
     maxWalkMeters as storedMaxWalkMeters,
+    walkPace as storedWalkPace,
     walkTieSeconds as storedWalkTieSeconds,
 } from "@/features/user-data/user-data.service"
 import { config } from "@/lib/config"
@@ -76,8 +78,10 @@ export interface NetworkServiceDependencies {
     /** Looked up on every call: a new import swaps the database file. */
     database: () => DatabaseSync
     walker: () => Walker | null
-    /** The `maxWalk` query value (minutes) in metres, or the stored setting without one. */
-    maxWalkMeters: (param: string | null) => number
+    /** The `maxWalk` query value (minutes) in metres at a pace, or the stored setting without one. */
+    maxWalkMeters: (param: string | null, pace: number) => number
+    /** The `speed` query value (km/h) as seconds per metre, or the stored setting without one. */
+    walkPace: (param: string | null) => number
     /** The `tie` query value (minutes) in seconds, or the stored setting without one. */
     walkTieSeconds: (param: string | null) => number
     now: () => Date
@@ -211,6 +215,7 @@ export const createNetworkService = ({
     database = getDatabase,
     walker = getWalker,
     maxWalkMeters = storedMaxWalkMeters,
+    walkPace = storedWalkPace,
     walkTieSeconds = storedWalkTieSeconds,
     now = () => new Date(),
 }: Partial<NetworkServiceDependencies> = {}) => ({
@@ -244,12 +249,14 @@ export const createNetworkService = ({
 
     getReachable(query: ReachableQuery) {
         const db = database()
+        const pace = walkPace(query.speed ?? null)
         return getReachable(new TimetableRepository(db), db, {
             originId: query.from ?? null,
             destinationId: query.to ?? null,
             includeWalking: query.walk,
             walker: walker(),
-            maxWalkMeters: maxWalkMeters(query.maxWalk ?? null),
+            maxWalkMeters: maxWalkMeters(query.maxWalk ?? null, pace),
+            pace,
             walkTieSeconds: walkTieSeconds(query.tie ?? null),
             now: now(),
         })

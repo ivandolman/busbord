@@ -5,8 +5,10 @@ import { describe, it } from "node:test"
 
 import type { Departure } from "@/features/board/board.types"
 import {
+    minutesToWalkMeters,
     pickBestPairPerTrip,
     rankDepartures,
+    secondsPerMeter,
     summarise,
     walkSeconds,
     worthwhileRides,
@@ -55,6 +57,15 @@ describe("rankDepartures", () => {
         assert.strictEqual(ranked.find((d) => d.line === "22")?.firstToArrive, false)
         // 800 m of walking at 5 km/h is 9.6 minutes, shown as 10.
         assert.strictEqual(walkSeconds(800), 600)
+    })
+
+    it("walks at the traveller's pace", () => {
+        // 800 m at 4 km/h is 12 minutes, at 6 km/h 8 minutes.
+        assert.strictEqual(walkSeconds(800, secondsPerMeter(4)), 720)
+        assert.strictEqual(walkSeconds(800, secondsPerMeter(6)), 480)
+        // A faster walker gets further in the same 12 minutes.
+        assert.strictEqual(minutesToWalkMeters(12, secondsPerMeter(6)), 1200)
+        assert.strictEqual(minutesToWalkMeters(12), 1000)
     })
 
     it("flags a departure that a later one beats to the destination", () => {

@@ -14,8 +14,13 @@ import type {
 
 const HEADWAY_WINDOW_SECONDS = 3600
 
-/** Walking speed: 5 km/h, about 83 m a minute, over a walking distance (see walkingMeters). */
-export const WALK_SECONDS_PER_METER = 3600 / 5000
+/** Default walking speed: 5 km/h, about 83 m a minute. The traveller can change it (settings). */
+export const DEFAULT_WALK_KMH = 5
+
+/** Seconds per metre of walking at `kmh`. */
+export const secondsPerMeter = (kmh: number) => 3600 / (kmh * 1000)
+
+export const WALK_SECONDS_PER_METER = secondsPerMeter(DEFAULT_WALK_KMH)
 
 /** Streets are not straight lines: without a walking route, a straight line plus a quarter. */
 export const STRAIGHT_LINE_DETOUR = 1.25
@@ -45,13 +50,14 @@ export function modeFromRouteType(routeType: number): Mode {
     return "other"
 }
 
-/** Walking metres in a number of minutes, at WALK_SECONDS_PER_METER. */
-export function minutesToWalkMeters(minutes: number): number {
-    return Math.round((minutes * 60) / WALK_SECONDS_PER_METER)
+/** Walking metres in a number of minutes. */
+export function minutesToWalkMeters(minutes: number, pace = WALK_SECONDS_PER_METER): number {
+    return Math.round((minutes * 60) / pace)
 }
 
-export function walkSeconds(meters: number): number {
-    return meters > 0 ? Math.max(60, Math.round((meters * WALK_SECONDS_PER_METER) / 60) * 60) : 0
+/** A walk in whole minutes (at least one), as seconds; `pace` in seconds per metre. */
+export function walkSeconds(meters: number, pace = WALK_SECONDS_PER_METER): number {
+    return meters > 0 ? Math.max(60, Math.round((meters * pace) / 60) * 60) : 0
 }
 
 /**
@@ -67,6 +73,7 @@ export function pickBestPairPerTrip(
     originWalk: ReadonlyMap<string, number> = new Map(),
     destinationWalk: ReadonlyMap<string, number> = new Map(),
     tieSeconds = PAIR_TIE_SECONDS,
+    pace = WALK_SECONDS_PER_METER,
 ): Candidate[] {
     type Scored = { candidate: Candidate; nearbyOnly: number; walk: number; seconds: number }
     const byTrip = new Map<string, Scored[]>()
@@ -78,10 +85,7 @@ export function pickBestPairPerTrip(
             candidate,
             nearbyOnly: (walkFrom > 0 ? 1 : 0) + (walkTo > 0 ? 1 : 0),
             walk,
-            seconds:
-                walk * WALK_SECONDS_PER_METER +
-                candidate.plannedArrival -
-                candidate.plannedDeparture,
+            seconds: walk * pace + candidate.plannedArrival - candidate.plannedDeparture,
         }
         const key = `${candidate.serviceDate}|${candidate.tripId}`
         const list = byTrip.get(key) ?? []
@@ -123,12 +127,13 @@ export function worthwhileRides(
     trips: Candidate[],
     originWalk: ReadonlyMap<string, number> = new Map(),
     destinationWalk: ReadonlyMap<string, number> = new Map(),
+    pace = WALK_SECONDS_PER_METER,
 ): Candidate[] {
     const doorSeconds = (trip: Candidate) =>
         trip.plannedArrival -
         trip.plannedDeparture +
-        walkSeconds(originWalk.get(trip.fromStopId) ?? 0) +
-        walkSeconds(destinationWalk.get(trip.toStopId) ?? 0)
+        walkSeconds(originWalk.get(trip.fromStopId) ?? 0, pace) +
+        walkSeconds(destinationWalk.get(trip.toStopId) ?? 0, pace)
     const key = (trip: Candidate) => `${trip.routeId}|${trip.fromStopId}|${trip.toStopId}`
 
     const quickest = new Map<string, number>()
@@ -148,10 +153,11 @@ export function toDeparture(
     originWalk: ReadonlyMap<string, number> = new Map(),
     destinationWalk: ReadonlyMap<string, number> = new Map(),
     nowSeconds = 0,
+    pace = WALK_SECONDS_PER_METER,
 ): Departure {
     const unknownStop: StopInfo = { name: "", platform: "", lat: 0, lon: 0 }
-    const walkTo = walkSeconds(originWalk.get(candidate.fromStopId) ?? 0)
-    const walkFrom = walkSeconds(destinationWalk.get(candidate.toStopId) ?? 0)
+    const walkTo = walkSeconds(originWalk.get(candidate.fromStopId) ?? 0, pace)
+    const walkFrom = walkSeconds(destinationWalk.get(candidate.toStopId) ?? 0, pace)
     const expectedDeparture = candidate.plannedDeparture + (adjustment?.departureDelay ?? 0)
     const expectedArrival = candidate.plannedArrival + (adjustment?.arrivalDelay ?? 0)
     return {

@@ -2,9 +2,14 @@
 
 import { mkdirSync } from "node:fs"
 import { dirname } from "node:path"
+
 import { DatabaseSync } from "node:sqlite"
 
-import { minutesToWalkMeters } from "@/features/board/build-board"
+import {
+    DEFAULT_WALK_KMH,
+    minutesToWalkMeters,
+    secondsPerMeter,
+} from "@/features/board/build-board"
 import { MAX_ROUTES, parseRouteList } from "@/features/saved-routes/saved-routes"
 import type { SavedRoute } from "@/features/saved-routes/saved-routes.schema"
 import { config } from "@/lib/config"
@@ -13,6 +18,7 @@ import {
     MapStyleSchema,
     MaxWalkMinutesSchema,
     SettingsUpdateSchema,
+    WalkKmhSchema,
     WalkTieMinutesSchema,
     type MapStyle,
     type Settings,
@@ -22,14 +28,17 @@ import {
 
 export {
     MAX_MAX_WALK_MINUTES,
+    MAX_WALK_KMH,
     MAX_WALK_TIE_MINUTES,
     MIN_MAX_WALK_MINUTES,
+    MIN_WALK_KMH,
 } from "./user-data.schema"
 
 export const DEFAULT_SETTINGS: Settings = {
     walkTieMinutes: 2,
     mapStyle: "calm",
     maxWalkMinutes: config.board.defaultMaxWalkMinutes,
+    walkKmh: DEFAULT_WALK_KMH,
 }
 
 const USER_TABLES = `
@@ -85,6 +94,10 @@ export function parseMaxWalkMinutes(value: unknown): number | null {
     return MaxWalkMinutesSchema.safeParse(value).data ?? null
 }
 
+export function parseWalkKmh(value: unknown): number | null {
+    return WalkKmhSchema.safeParse(value).data ?? null
+}
+
 export function parseMapStyle(value: unknown): MapStyle | null {
     return MapStyleSchema.safeParse(value).data ?? null
 }
@@ -134,6 +147,7 @@ export function createUserDataService(db: DatabaseSync) {
             maxWalkMinutes:
                 parseMaxWalkMinutes(stored.get("maxWalkMinutes")) ??
                 DEFAULT_SETTINGS.maxWalkMinutes,
+            walkKmh: parseWalkKmh(stored.get("walkKmh")) ?? DEFAULT_SETTINGS.walkKmh,
         }
     }
 
@@ -214,8 +228,16 @@ export function walkTieSeconds(param: string | null): number {
     return minutes * 60
 }
 
-/** The longest walk for a request in metres: the `maxWalk` query parameter (minutes) or the stored setting. */
-export function maxWalkMeters(param: string | null): number {
+/** Walking pace for a request in seconds per metre: the `speed` query parameter (km/h) or the stored setting. */
+export function walkPace(param: string | null): number {
+    return secondsPerMeter(parseWalkKmh(param) ?? getUserDataService().settings().walkKmh)
+}
+
+/**
+ * The longest walk for a request in metres: the `maxWalk` query parameter (minutes) or the
+ * stored setting, at the request's pace (a faster walker gets further in the same minutes).
+ */
+export function maxWalkMeters(param: string | null, pace: number): number {
     const minutes = parseMaxWalkMinutes(param) ?? getUserDataService().settings().maxWalkMinutes
-    return minutesToWalkMeters(minutes)
+    return minutesToWalkMeters(minutes, pace)
 }

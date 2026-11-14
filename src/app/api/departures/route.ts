@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
 
 // --- HANDLER ---
 
-/** `?stop=&to=&from=&walk=&maxWalk=`: `to` marks rides that reach it, `from` adds walks to the poles. */
+/** `?stop=&to=&from=&walk=&maxWalk=&speed=`: `to` marks rides that reach it, `from` adds walks to the poles. */
 export async function GET(request: NextRequest): Promise<NextResponse> {
     const query = parseQuery(StopBoardQuerySchema, request.nextUrl.searchParams, "Onbekende halte.")
     if (query.error) return query.error

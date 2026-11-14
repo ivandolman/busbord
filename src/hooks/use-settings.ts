@@ -6,7 +6,7 @@ import { z } from "zod"
 
 // --- CONSTANTS ---
 
-const DEFAULTS = { walkTieMinutes: 2, mapStyle: "calm", maxWalkMinutes: 12 } as const
+const DEFAULTS = { walkTieMinutes: 2, mapStyle: "calm", maxWalkMinutes: 12, walkKmh: 5 } as const
 
 /** Mirrors Settings in features/user-data (server-only module); anything unexpected falls back to the default. */
 const SettingsSchema = z
@@ -14,6 +14,7 @@ const SettingsSchema = z
         walkTieMinutes: z.number().catch(DEFAULTS.walkTieMinutes),
         mapStyle: z.enum(["calm", "detailed"]).catch(DEFAULTS.mapStyle),
         maxWalkMinutes: z.number().catch(DEFAULTS.maxWalkMinutes),
+        walkKmh: z.number().catch(DEFAULTS.walkKmh),
     })
     .catch({ ...DEFAULTS })
 
@@ -52,7 +53,11 @@ function load(): Promise<void> {
 
 /** Query parameters that pass the walking settings to the API (and keep cached answers apart). */
 export function walkParams(settings: Settings): Record<string, string> {
-    return { tie: String(settings.walkTieMinutes), maxWalk: String(settings.maxWalkMinutes) }
+    return {
+        tie: String(settings.walkTieMinutes),
+        maxWalk: String(settings.maxWalkMinutes),
+        speed: String(settings.walkKmh),
+    }
 }
 
 export function useSettings() {

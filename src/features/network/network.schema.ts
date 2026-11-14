@@ -6,7 +6,7 @@ import { DefaultOnFlagSchema, PlaceIdSchema } from "@/lib/schemas"
 
 // --- SCHEMAS ---
 
-/** At least one of `from` and `to`; `maxWalk` and `tie` stay raw for the stored settings to fill in. */
+/** At least one of `from` and `to`; `maxWalk`, `tie` and `speed` stay raw for the stored settings. */
 export const ReachableQuerySchema = z
     .object({
         from: PlaceIdSchema.optional(),
@@ -14,6 +14,7 @@ export const ReachableQuerySchema = z
         walk: DefaultOnFlagSchema,
         tie: z.string().optional(),
         maxWalk: z.string().optional(),
+        speed: z.string().optional(),
     })
     .refine((query) => query.from !== undefined || query.to !== undefined)
 

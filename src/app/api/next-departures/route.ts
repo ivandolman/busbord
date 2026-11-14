@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
 
 // --- HANDLER ---
 
-/** `?areas=a,b,c&to=…&walk=&maxWalk=` */
+/** `?areas=a,b,c&to=…&walk=&maxWalk=&speed=` */
 export async function GET(request: NextRequest): Promise<NextResponse> {
     const query = parseQuery(NextDeparturesQuerySchema, request.nextUrl.searchParams, (issue) =>
         issue.path?.[0] === "to" ? "Kies een bestemming." : "Onbekende haltes.",

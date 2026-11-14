@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
 
 // --- HANDLER ---
 
-/** `?from=&to=&walk=&maxWalk=&tie=`, at least one of `from` and `to`. */
+/** `?from=&to=&walk=&maxWalk=&tie=&speed=`, at least one of `from` and `to`. */
 export function GET(request: NextRequest): NextResponse {
     const query = parseQuery(
         ReachableQuerySchema,

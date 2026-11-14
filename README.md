@@ -158,7 +158,8 @@ values in `src/styles/theme/colors.css`, and the base map, which has no dark ver
    same trip, at a destination platform (`src/features/board/board.repository.ts`). That is one indexed
    self-join on `stop_times`; no line list is maintained anywhere.
 3. **Ranking.** Departures are listed in departure order. Walking counts: each departure
-   carries the walk to its stop and from the stop where you get off, at 5 km/h. With
+   carries the walk to its stop and from the stop where you get off, at 5 km/h unless the
+   "Looptempo" setting says otherwise (3,5–6,5 km/h; the API takes it as `speed`). With
    `data/roads.bin` present that is the real walking route over streets, footpaths,
    platforms and pedestrian areas (both ways along one-way streets, never along motorways, tram tracks,
    bus lanes or roads signed closed to walkers, `src/features/roads/walking.ts`). Squares and

@@ -6,6 +6,7 @@ import { geocodeService, type GeocodeService } from "@/features/geocode/geocode.
 import { getWalker, type Walker } from "@/features/roads/walking"
 import {
     maxWalkMeters as storedMaxWalkMeters,
+    walkPace as storedWalkPace,
     walkTieSeconds as storedWalkTieSeconds,
 } from "@/features/user-data/user-data.service"
 import { config } from "@/lib/config"
@@ -101,6 +102,8 @@ export interface BoardRequest {
     walker?: Walker | null
     /** The longest walk to or from a stop, in metres. */
     maxWalkMeters?: number
+    /** Walking pace in seconds per metre (default 5 km/h). */
+    pace?: number
     alerts?: AlertSource | null
 }
 
@@ -114,6 +117,8 @@ export interface StopBoardRequest {
     horizonSeconds: number
     limit: number
     maxWalkMeters?: number
+    /** Walking pace in seconds per metre (default 5 km/h). */
+    pace?: number
     /** Optional: where the traveller sets off, to tell them how far each pole is. */
     originId?: string | null
     walker?: Walker | null
@@ -125,8 +130,10 @@ export interface BoardServiceDependencies {
     realtime: () => RealtimeSource | null
     alerts: () => AlertSource | null
     walker: () => Walker | null
-    /** The `maxWalk` query value (minutes) in metres, or the stored setting without one. */
-    maxWalkMeters: (param: string | null) => number
+    /** The `maxWalk` query value (minutes) in metres at a pace, or the stored setting without one. */
+    maxWalkMeters: (param: string | null, pace: number) => number
+    /** The `speed` query value (km/h) as seconds per metre, or the stored setting without one. */
+    walkPace: (param: string | null) => number
     /** The `tie` query value (minutes) in seconds, or the stored setting without one. */
     walkTieSeconds: (param: string | null) => number
     /** Addresses for the place search and for naming map points. */
@@ -189,6 +196,7 @@ export async function getBoard(
         origin.walkMeters,
         destination.walkMeters,
         request.walkTieSeconds,
+        request.pace,
     )
 
     const snapshot = realtime ? await realtime.snapshot() : null
@@ -206,6 +214,7 @@ export async function getBoard(
                     origin.walkMeters,
                     destination.walkMeters,
                     nowSeconds,
+                    request.pace,
                 ),
             )
             // The grace window pulled in vehicles that really have left; drop those again.
@@ -235,6 +244,7 @@ export async function getBoard(
                   untilEpoch: until,
                   nowSeconds,
                   snapshot,
+                  pace: request.pace ?? WALK_SECONDS_PER_METER,
               }),
     }
 }
@@ -326,6 +336,7 @@ export async function getStopBoard(
         stop.area.name,
         origin,
         request.walker ?? null,
+        request.pace ?? WALK_SECONDS_PER_METER,
     )
 
     return {
@@ -352,11 +363,17 @@ export const createBoardService = ({
     alerts = getAlertSource,
     walker = getWalker,
     maxWalkMeters = storedMaxWalkMeters,
+    walkPace = storedWalkPace,
     walkTieSeconds = storedWalkTieSeconds,
     geocoder = geocodeService,
     now = () => new Date(),
 }: Partial<BoardServiceDependencies> = {}) => {
     const repository = () => new TimetableRepository(database())
+    /** The request's pace and, at that pace, its longest walk. */
+    const walkLimits = (query: { maxWalk?: string; speed?: string }) => {
+        const pace = walkPace(query.speed ?? null)
+        return { pace, maxWalkMeters: maxWalkMeters(query.maxWalk ?? null, pace) }
+    }
 
     return {
         getBoard: (query: BoardQuery) =>
@@ -368,7 +385,7 @@ export const createBoardService = ({
                 now: now(),
                 walkTieSeconds: walkTieSeconds(query.tie ?? null),
                 walker: walker(),
-                maxWalkMeters: maxWalkMeters(query.maxWalk ?? null),
+                ...walkLimits(query),
                 alerts: alerts(),
             }),
 
@@ -387,7 +404,7 @@ export const createBoardService = ({
                 limit: STOP_BOARD_LIMIT,
                 originId: query.from ?? null,
                 walker: walker(),
-                maxWalkMeters: maxWalkMeters(query.maxWalk ?? null),
+                ...walkLimits(query),
             }),
 
         /** Per stop area, the next ride of each line towards `to`. */
@@ -400,7 +417,7 @@ export const createBoardService = ({
                 now: now(),
                 horizonSeconds: NEXT_DEPARTURES_HORIZON_SECONDS,
                 walker: walker(),
-                maxWalkMeters: maxWalkMeters(query.maxWalk ?? null),
+                ...walkLimits(query),
             }),
 
         /** Display name for a stop area or map point, for selections restored from the URL. */
@@ -456,17 +473,18 @@ export const createBoardService = ({
                 if (!area) throw new UnknownAreaError(query.id)
                 center = [area.lat, area.lon]
             }
+            const { pace, maxWalkMeters: max } = walkLimits(query)
             const limitMeters = endpointWalkLimit(query.id, {
                 walking: query.walk,
                 role: query.role,
-                maxWalkMeters: maxWalkMeters(query.maxWalk ?? null),
+                maxWalkMeters: max,
             })
             const polygon = limitMeters > 0 ? (walker()?.area(center, limitMeters) ?? null) : null
             return {
                 center,
                 radiusMeters: Math.round(limitMeters / STRAIGHT_LINE_DETOUR),
                 limitMeters,
-                minutes: Math.round((limitMeters * WALK_SECONDS_PER_METER) / 60),
+                minutes: Math.round((limitMeters * pace) / 60),
                 polygon: polygon?.map(roundPosition) ?? null,
             }
         },
@@ -538,6 +556,7 @@ function describePoles(
     stopName: string,
     origin: Endpoint | null,
     walker: Walker | null,
+    pace: number,
 ): { poles: StopPole[]; poleOf: Map<string, string> } {
     const allIds = [...new Set(rows.map((row) => row.stopId))].sort()
     const positions = repository.stopPositions(allIds)
@@ -597,7 +616,7 @@ function describePoles(
             lon,
             towards: towards ? shortHeadsign(towards, stopName) : null,
             walkMeters: walk ?? null,
-            walkSeconds: walk === undefined ? null : Math.round(walk * WALK_SECONDS_PER_METER),
+            walkSeconds: walk === undefined ? null : Math.round(walk * pace),
         }
     })
     poles.sort((a, b) => a.label.localeCompare(b.label, "nl", { numeric: true }))

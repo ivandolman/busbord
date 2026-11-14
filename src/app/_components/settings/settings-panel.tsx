@@ -20,6 +20,17 @@ const WALK_TIE_OPTIONS = [0, 1, 2, 3, 4, 5, 7, 10, 15]
 /** Choices for the longest walk to a stop. */
 const MAX_WALK_OPTIONS = [3, 5, 8, 10, 12, 15, 20, 25]
 
+/** Walking speeds in km/h; 5 is the default. */
+const WALK_KMH_OPTIONS = [
+    { kmh: 3.5, label: "Rustig · 3,5 km/u" },
+    { kmh: 4, label: "4 km/u" },
+    { kmh: 4.5, label: "4,5 km/u" },
+    { kmh: 5, label: "Gemiddeld · 5 km/u" },
+    { kmh: 5.5, label: "5,5 km/u" },
+    { kmh: 6, label: "6 km/u" },
+    { kmh: 6.5, label: "Vlot · 6,5 km/u" },
+]
+
 const THEMES: { value: Theme; label: string }[] = [
     { value: "auto", label: "Automatisch" },
     { value: "light", label: "Licht" },
@@ -96,6 +107,21 @@ export default function SettingsPanel({
                         {MAX_WALK_OPTIONS.map((minutes) => (
                             <option key={minutes} value={minutes}>
                                 {minutes} min
+                            </option>
+                        ))}
+                    </Select>
+                </SettingsRow>
+                <SettingsRow title="Looptempo" detail="Alle looptijden rekenen hiermee">
+                    <Select
+                        name="walk-kmh"
+                        value={settings.walkKmh}
+                        onChange={(event) =>
+                            void update({ ...settings, walkKmh: Number(event.target.value) })
+                        }
+                    >
+                        {WALK_KMH_OPTIONS.map((option) => (
+                            <option key={option.kmh} value={option.kmh}>
+                                {option.label}
                             </option>
                         ))}
                     </Select>

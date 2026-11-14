@@ -19,7 +19,7 @@ const MAX_QUERY_LENGTH = 60
 
 // --- SCHEMAS ---
 
-/** `maxWalk` (minutes) and `tie` (minutes) stay raw: the user's stored settings fill them in. */
+/** `maxWalk` (minutes), `tie` (minutes) and `speed` (km/h) stay raw: the stored settings fill them in. */
 const SettingOverrideSchema = z.string().optional()
 
 export const BoardQuerySchema = z
@@ -30,6 +30,7 @@ export const BoardQuerySchema = z
         trains: DefaultOffFlagSchema,
         tie: SettingOverrideSchema,
         maxWalk: SettingOverrideSchema,
+        speed: SettingOverrideSchema,
     })
     .refine((query) => query.from !== query.to, {
         message: "Vertrek en bestemming zijn dezelfde halte.",
@@ -41,6 +42,7 @@ export const StopBoardQuerySchema = z.object({
     from: PlaceIdSchema.optional(),
     walk: DefaultOnFlagSchema,
     maxWalk: SettingOverrideSchema,
+    speed: SettingOverrideSchema,
 })
 
 /** `areas` is a comma-separated list; `to` comes first so its error wins when both are wrong. */
@@ -53,6 +55,7 @@ export const NextDeparturesQuerySchema = z.object({
         .pipe(z.array(AreaIdSchema).min(1).max(MAX_AREAS)),
     walk: DefaultOnFlagSchema,
     maxWalk: SettingOverrideSchema,
+    speed: SettingOverrideSchema,
 })
 
 export const PlaceQuerySchema = z.object({ id: PlaceIdSchema })
@@ -73,6 +76,7 @@ export const WalkAreaQuerySchema = z.object({
         .optional()
         .transform((value): "from" | "to" => (value === "to" ? "to" : "from")),
     maxWalk: SettingOverrideSchema,
+    speed: SettingOverrideSchema,
 })
 
 export const WalkRouteQuerySchema = z.object({ from: PointIdSchema, to: PointIdSchema })

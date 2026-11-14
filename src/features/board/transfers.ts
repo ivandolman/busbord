@@ -12,7 +12,7 @@ import type {
     Transfer,
     TransferLeg,
 } from "./board.types"
-import { STRAIGHT_LINE_DETOUR, WALK_SECONDS_PER_METER, walkSeconds } from "./build-board"
+import { STRAIGHT_LINE_DETOUR, walkSeconds } from "./build-board"
 import type { RealtimeSnapshot } from "./realtime"
 import { stopNameKey } from "./stop-name"
 
@@ -49,6 +49,8 @@ export interface TransferRequest {
     untilEpoch: number
     nowSeconds: number
     snapshot: RealtimeSnapshot | null
+    /** Walking pace in seconds per metre. */
+    pace: number
 }
 
 // --- SERVICE ---
@@ -109,7 +111,10 @@ export function findTransfers(
         for (const first of firsts) {
             const one = leg(first, stops, request.snapshot)
             if (!one) continue
-            const walkTo = walkSeconds(request.origin.walkMeters.get(first.fromStopId) ?? 0)
+            const walkTo = walkSeconds(
+                request.origin.walkMeters.get(first.fromStopId) ?? 0,
+                request.pace,
+            )
             const leaveAt = one.expectedDeparture - walkTo
             if (leaveAt < request.nowSeconds - 30) continue
             const arriveArea = arriveStops.get(first.toStopId)
@@ -127,6 +132,7 @@ export function findTransfers(
                         continue
                     const walkFrom = walkSeconds(
                         request.destination.walkMeters.get(candidate.toStopId) ?? 0,
+                        request.pace,
                     )
                     const doorArrival = two.expectedArrival + walkFrom
                     if (!best || doorArrival < best.doorArrival) {
@@ -217,7 +223,7 @@ function changePlaces(
                 walkSeconds:
                     arrive.id === depart.id
                         ? 0
-                        : Math.round(apart * STRAIGHT_LINE_DETOUR * WALK_SECONDS_PER_METER),
+                        : Math.round(apart * STRAIGHT_LINE_DETOUR * request.pace),
                 detour:
                     distanceMeters(o.lat, o.lon, arrive.lat, arrive.lon) +
                     distanceMeters(depart.lat, depart.lon, d.lat, d.lon),

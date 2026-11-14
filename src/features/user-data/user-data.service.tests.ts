@@ -1,11 +1,16 @@
 // Unit tests for the user data service on an in-memory SQLite store
 
 import assert from "node:assert"
-import { DatabaseSync } from "node:sqlite"
 import { describe, it } from "node:test"
 
+import { DatabaseSync } from "node:sqlite"
+
 import type { SavedRoute } from "@/features/saved-routes/saved-routes"
-import { createUserDataService, parseWalkTieMinutes } from "@/features/user-data/user-data.service"
+import {
+    createUserDataService,
+    parseWalkKmh,
+    parseWalkTieMinutes,
+} from "@/features/user-data/user-data.service"
 
 // --- HELPERS ---
 
@@ -58,6 +63,7 @@ describe("UserStore", () => {
             walkTieMinutes: 5,
             mapStyle: "detailed",
             maxWalkMinutes: 12,
+            walkKmh: 5,
         })
         assert.strictEqual(store.saveSettings({ maxWalkMinutes: 8 }).maxWalkMinutes, 8)
     })
@@ -70,5 +76,20 @@ describe("UserStore", () => {
         assert.strictEqual(parseWalkTieMinutes("99"), null)
         assert.strictEqual(parseWalkTieMinutes(null), null)
         assert.strictEqual(parseWalkTieMinutes(""), null)
+    })
+
+    it("stores the walking speed, 5 km/h by default", () => {
+        const store = createUserDataService(new DatabaseSync(":memory:"))
+        assert.strictEqual(store.settings().walkKmh, 5)
+        assert.strictEqual(store.saveSettings({ walkKmh: 4.5 }).walkKmh, 4.5)
+    })
+
+    it("accepts walking speeds in half steps between 3 and 7 km/h", () => {
+        assert.strictEqual(parseWalkKmh("4.5"), 4.5)
+        assert.strictEqual(parseWalkKmh(6), 6)
+        assert.strictEqual(parseWalkKmh("4.2"), null)
+        assert.strictEqual(parseWalkKmh("2.5"), null)
+        assert.strictEqual(parseWalkKmh("8"), null)
+        assert.strictEqual(parseWalkKmh(""), null)
     })
 })

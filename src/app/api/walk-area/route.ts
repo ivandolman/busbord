@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic"
 // --- HANDLER ---
 
 /**
- * `?id=&walk=&role=from|to&maxWalk=`. `polygon` is null without a road network (or off it); the
+ * `?id=&walk=&role=from|to&maxWalk=&speed=`. `polygon` is null without a road network (or off it); the
  * map then draws a circle of `radiusMeters` as the crow flies.
  */
 export function GET(request: NextRequest): NextResponse {

@@ -28,6 +28,8 @@ export interface ReachableRequest {
     includeWalking: boolean
     walker: Walker | null
     maxWalkMeters: number
+    /** Walking pace in seconds per metre. */
+    pace: number
     walkTieSeconds: number
     now: Date
 }
@@ -96,11 +98,15 @@ export function getReachable(
             origin.walkMeters,
             destination.walkMeters,
             request.walkTieSeconds,
+            request.pace,
         )
         // Only stretches you would sensibly ride, not a ring line the long way round.
-        const pairs = worthwhileRides(trips, origin.walkMeters, destination.walkMeters).map(
-            ({ routeId, fromStopId, toStopId }) => ({ routeId, fromStopId, toStopId }),
-        )
+        const pairs = worthwhileRides(
+            trips,
+            origin.walkMeters,
+            destination.walkMeters,
+            request.pace,
+        ).map(({ routeId, fromStopId, toStopId }) => ({ routeId, fromStopId, toStopId }))
         const segments = rideSegments(db, pairs)
         return {
             direction: "both",

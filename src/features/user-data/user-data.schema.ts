@@ -7,6 +7,8 @@ import { z } from "zod"
 export const MAX_WALK_TIE_MINUTES = 15
 export const MIN_MAX_WALK_MINUTES = 2
 export const MAX_MAX_WALK_MINUTES = 25
+export const MIN_WALK_KMH = 3
+export const MAX_WALK_KMH = 7
 
 // --- SCHEMAS ---
 
@@ -18,6 +20,12 @@ const wholeMinutes = (min: number, max: number) =>
     )
 
 export const WalkTieMinutesSchema = wholeMinutes(0, MAX_WALK_TIE_MINUTES)
+
+/** Walking speed in km/h, in half steps, as a number or as text. */
+export const WalkKmhSchema = z.preprocess(
+    (value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : value),
+    z.number().min(MIN_WALK_KMH).max(MAX_WALK_KMH).multipleOf(0.5),
+)
 export const MaxWalkMinutesSchema = wholeMinutes(MIN_MAX_WALK_MINUTES, MAX_MAX_WALK_MINUTES)
 
 /** Map background: a quiet grey map, or the detailed OpenStreetMap one. */
@@ -32,6 +40,8 @@ export const SettingsSchema = z.object({
     mapStyle: MapStyleSchema,
     /** The longest walk to (or from) a stop that still counts. */
     maxWalkMinutes: MaxWalkMinutesSchema,
+    /** How fast the traveller walks; every walking time on the board follows it. */
+    walkKmh: WalkKmhSchema,
 })
 
 export type Settings = z.infer<typeof SettingsSchema>
