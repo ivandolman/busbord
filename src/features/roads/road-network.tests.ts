@@ -32,6 +32,46 @@ describe("classifyWay", () => {
         )
     })
 
+    it("keeps squares and pedestrian areas as areas to cross", () => {
+        assert.deepStrictEqual(classifyWay(tags({ highway: "pedestrian", area: "yes" })), {
+            roadClass: FOOT_CLASS,
+            oneway: 0,
+            area: true,
+        })
+        assert.strictEqual(
+            classifyWay(tags({ highway: "footway", area: "yes", access: "no" })),
+            null,
+        )
+        // A road drawn as an area is still left out.
+        assert.strictEqual(classifyWay(tags({ highway: "residential", area: "yes" })), null)
+    })
+
+    it("keeps a footpath that is closed to traffic but open to walkers", () => {
+        assert.strictEqual(
+            classifyWay(tags({ highway: "path", access: "no", foot: "designated" }))?.roadClass,
+            FOOT_CLASS,
+        )
+        assert.strictEqual(
+            classifyWay(tags({ highway: "track", access: "agricultural" }))?.roadClass,
+            FOOT_CLASS,
+        )
+    })
+
+    it("keeps roads closed to walkers for buses only", () => {
+        assert.strictEqual(classifyWay(tags({ highway: "primary", foot: "no" }))?.noFoot, true)
+        assert.strictEqual(
+            classifyWay(tags({ highway: "primary", motorroad: "yes" }))?.noFoot,
+            true,
+        )
+        assert.strictEqual(classifyWay(tags({ highway: "busway" }))?.noFoot, true)
+        assert.strictEqual(
+            classifyWay(tags({ highway: "service", access: "no", bus: "designated" }))?.noFoot,
+            true,
+        )
+        assert.strictEqual(classifyWay(tags({ highway: "busway", foot: "yes" }))?.noFoot, undefined)
+        assert.strictEqual(classifyWay(tags({ highway: "residential" }))?.noFoot, undefined)
+    })
+
     it("reads one-way rules, including buses that may ignore them", () => {
         assert.strictEqual(classifyWay(tags({ highway: "primary", oneway: "yes" }))?.oneway, 1)
         assert.strictEqual(classifyWay(tags({ highway: "primary", oneway: "-1" }))?.oneway, -1)

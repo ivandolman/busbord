@@ -32,9 +32,10 @@ pnpm gtfs:import --file feed.zip    # or import a file you already have
 
 For lines on the map that follow the street exactly and for real walking distances, build
 the road network once before importing (about 750 MB of OpenStreetMap extracts are
-downloaded, reduced to a ~30 MB `data/roads.bin` and then deleted). A `roads.bin` from before
-footpaths and platforms were included still works, but walks then only follow roads and
-cannot start on a train platform; re-run the command:
+downloaded, reduced to a ~30 MB `data/roads.bin` and then deleted). An older `roads.bin`
+still works, but walks may follow roads closed to walkers, go round squares instead of across
+them, or (from before footpaths and platforms were included) only follow roads; re-run the
+command:
 
 ```bash
 pnpm roads:import                   # Utrecht and neighbouring provinces, see OSM_EXTRACTS
@@ -159,8 +160,11 @@ values in `src/styles/theme/colors.css`, and the base map, which has no dark ver
 3. **Ranking.** Departures are listed in departure order. Walking counts: each departure
    carries the walk to its stop and from the stop where you get off, at 5 km/h. With
    `data/roads.bin` present that is the real walking route over streets, footpaths,
-   platforms and pedestrian areas (both ways along one-way streets, never along motorways or tram tracks,
-   `src/features/roads/walking.ts`); without it, the straight line plus a quarter. The same walk
+   platforms and pedestrian areas (both ways along one-way streets, never along motorways, tram tracks,
+   bus lanes or roads signed closed to walkers, `src/features/roads/walking.ts`). Squares and
+   pedestrian areas drawn as an outline are crossed in a straight line between the paths that
+   meet them (`area-chords.ts`), and the bit from the address to the nearest path counts a
+   quarter longer than the crow flies. Without a road file: the straight line plus a quarter. The same walk
    decides which stops count: a stop near the origin (or near a point on the map) counts when
    you can walk there within the "Maximaal lopen" setting (default 12 minutes, about 1 km),
    so a stop across the water no longer counts just because it looks close. A stop chosen as

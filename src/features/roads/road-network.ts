@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from "node:fs"
 
 import type { BoundingBox } from "@/lib/config"
 
+import { areaChords } from "./area-chords"
 import { readPbf } from "./pbf"
 
 // --- CONSTANTS ---
@@ -33,6 +34,11 @@ export const TRAM_CLASS = EDGE_CLASSES.findIndex(([name]) => name === "tram")
 export const FOOT_CLASS = EDGE_CLASSES.findIndex(([name]) => name === "foot")
 /** Roads nobody walks along. */
 export const NO_WALKING_CLASSES: ReadonlySet<number> = new Set([0, 1])
+const BUSWAY_CLASS = EDGE_CLASSES.findIndex(([name]) => name === "busway")
+
+/** Edge flag bits: traffic only from → to; no walking along it (foot=no, motorroad, busway). */
+export const ONEWAY_FLAG = 1
+export const NO_FOOT_FLAG = 2
 
 const FOOT_HIGHWAYS = new Set([
     "footway",
@@ -84,8 +90,19 @@ export interface RoadNetwork {
     edgeTo: Uint32Array
     /** Index into EDGE_CLASSES. */
     edgeClass: Uint8Array
-    /** 0 = both ways, 1 = only from → to. */
-    edgeOneway: Uint8Array
+    /** ONEWAY_FLAG and NO_FOOT_FLAG bits; 0 = two-way and walkable. */
+    edgeFlags: Uint8Array
+}
+
+/** How a kept OSM way enters the network. */
+export interface WayKind {
+    roadClass: number
+    /** 1 forward, -1 backward, 0 both. */
+    oneway: -1 | 0 | 1
+    /** Traffic may use it, pedestrians may not. */
+    noFoot?: true
+    /** A closed outline of an open space people walk across (square, pedestrian area). */
+    area?: true
 }
 
 // --- HELPERS ---
@@ -120,45 +137,46 @@ function lowerBound(sorted: Float64Array, value: number): number {
 
 // --- SERVICE ---
 
-/** Class index and oneway flag (1 forward, -1 backward, 0 both) of a way, or null to leave it out. */
-export function classifyWay(
-    tags: Map<string, string>,
-): { roadClass: number; oneway: -1 | 0 | 1 } | null {
+/** Class index and oneway flag of a way, or null to leave it out. */
+export function classifyWay(tags: Map<string, string>): WayKind | null {
     const railway = tags.get("railway")
     if (railway === "tram" || railway === "light_rail") return { roadClass: TRAM_CLASS, oneway: 0 }
 
     const highway = tags.get("highway")
+    const foot = tags.get("foot") ?? ""
+    const access = tags.get("access") ?? ""
     // Platforms are mostly mapped as areas: walking along their outline still reaches the stairs
     // and footpaths that end on them, so a walk can start on the platform the train arrives at.
     if (railway === "platform" || highway === "platform") {
-        if (NO.has(tags.get("foot") ?? "") || NO.has(tags.get("access") ?? "")) return null
+        if (NO.has(foot) || NO.has(access)) return null
         return { roadClass: FOOT_CLASS, oneway: 0 }
     }
     if (highway !== undefined && FOOT_HIGHWAYS.has(highway)) {
-        const foot = tags.get("foot")
-        if (NO.has(foot ?? "") || (NO.has(tags.get("access") ?? "") && !YES.has(foot ?? "")))
-            return null
-        if (tags.get("area") === "yes") return null
+        if (NO.has(foot) || (NO.has(access) && !YES.has(foot))) return null
+        if (tags.get("area") === "yes") return { roadClass: FOOT_CLASS, oneway: 0, area: true }
         return { roadClass: FOOT_CLASS, oneway: 0 }
     }
     const roadClass = highway === undefined ? undefined : CLASS_OF_HIGHWAY.get(highway)
     if (roadClass === undefined) return null
     if (highway === "service" && SKIPPED_SERVICE.has(tags.get("service") ?? "")) return null
     const busAllowed = YES.has(tags.get("bus") ?? "") || YES.has(tags.get("psv") ?? "")
-    if (
-        !busAllowed &&
-        (tags.get("access") === "private" || tags.get("access") === "no") &&
-        roadClass !== 9
-    )
-        return null
+    if (!busAllowed && NO.has(access) && roadClass !== BUSWAY_CLASS) return null
     if (tags.get("area") === "yes") return null
 
+    // Bus lanes, roads closed to traffic but open to buses, "autowegen" and roads signed foot=no
+    // stay in the bus network but a walk never follows them.
+    const noFoot =
+        NO.has(foot) ||
+        tags.get("motorroad") === "yes" ||
+        ((roadClass === BUSWAY_CLASS || NO.has(access)) && !YES.has(foot))
+    const kind = (oneway: -1 | 0 | 1): WayKind =>
+        noFoot ? { roadClass, oneway, noFoot: true } : { roadClass, oneway }
+
     const oneway = tags.get("oneway")
-    if (tags.get("oneway:bus") === "no" || tags.get("oneway:psv") === "no")
-        return { roadClass, oneway: 0 }
-    if (oneway === "-1") return { roadClass, oneway: -1 }
-    if (oneway === "yes" || oneway === "1" || oneway === "true") return { roadClass, oneway: 1 }
-    if (oneway === "no") return { roadClass, oneway: 0 }
+    if (tags.get("oneway:bus") === "no" || tags.get("oneway:psv") === "no") return kind(0)
+    if (oneway === "-1") return kind(-1)
+    if (oneway === "yes" || oneway === "1" || oneway === "true") return kind(1)
+    if (oneway === "no") return kind(0)
     const junction = tags.get("junction")
     if (
         junction === "roundabout" ||
@@ -166,9 +184,9 @@ export function classifyWay(
         highway === "motorway" ||
         highway === "motorway_link"
     ) {
-        return { roadClass, oneway: 1 }
+        return kind(1)
     }
-    return { roadClass, oneway: 0 }
+    return kind(0)
 }
 
 /**
@@ -184,7 +202,9 @@ export function extractRoadNetwork(
     const refs = new GrowableFloat64()
     const wayStart: number[] = []
     const wayClass: number[] = []
-    const wayOneway: number[] = []
+    const wayFlags: number[] = []
+    /** Ways that outline a walkable open space, crossed by straight lines below. */
+    const areaWays: number[] = []
     const seenWays = new Set<number>()
 
     for (const path of pbfPaths) {
@@ -197,9 +217,13 @@ export function extractRoadNetwork(
                 if (!kind) return
                 seenWays.add(way.id)
                 const ordered = kind.oneway === -1 ? [...way.refs].reverse() : way.refs
+                if (kind.area && way.refs[0] === way.refs[way.refs.length - 1])
+                    areaWays.push(wayClass.length)
                 wayStart.push(refs.length)
                 wayClass.push(kind.roadClass)
-                wayOneway.push(kind.oneway === 0 ? 0 : 1)
+                wayFlags.push(
+                    (kind.oneway === 0 ? 0 : ONEWAY_FLAG) | (kind.noFoot ? NO_FOOT_FLAG : 0),
+                )
                 for (const ref of ordered) refs.push(ref)
             },
         })
@@ -268,7 +292,7 @@ export function extractRoadNetwork(
     const edgeFrom: number[] = []
     const edgeTo: number[] = []
     const edgeClass: number[] = []
-    const edgeOneway: number[] = []
+    const edgeFlags: number[] = []
     const allRefs = refs.view()
     for (let w = 0; w < wayClass.length; w++) {
         const start = wayStart[w] as number
@@ -284,12 +308,43 @@ export function extractRoadNetwork(
                 edgeFrom.push(vertex(previous))
                 edgeTo.push(vertex(index))
                 edgeClass.push(wayClass[w] as number)
-                edgeOneway.push(wayOneway[w] as number)
+                edgeFlags.push(wayFlags[w] as number)
             }
             previous = index
         }
     }
-    log(`  ${vertexLat.length} vertices, ${edgeFrom.length} edges`)
+
+    // Across a square: straight lines between the points where paths and streets meet its outline.
+    const ways = new Uint8Array(needed.length)
+    for (let w = 0; w < wayClass.length; w++) {
+        const start = wayStart[w] as number
+        const end = wayStart[w + 1] as number
+        const closed = allRefs[start] === allRefs[end - 1]
+        for (let r = start; r < (closed ? end - 1 : end); r++) {
+            const index = lowerBound(needed, allRefs[r] as number)
+            if ((ways[index] as number) < 2) ways[index]!++
+        }
+    }
+    let chords = 0
+    for (const w of areaWays) {
+        const indices: number[] = []
+        for (let r = wayStart[w] as number; r < (wayStart[w + 1] as number) - 1; r++)
+            indices.push(lowerBound(needed, allRefs[r] as number))
+        if (indices.some((index) => Number.isNaN(lat[index]) || !inBox(index))) continue
+        const ring = indices.map((index): [number, number] => [
+            lat[index] as number,
+            lon[index] as number,
+        ])
+        const entrances = indices.flatMap((index, i) => ((ways[index] as number) > 1 ? [i] : []))
+        for (const [i, j] of areaChords(ring, entrances)) {
+            edgeFrom.push(vertex(indices[i] as number))
+            edgeTo.push(vertex(indices[j] as number))
+            edgeClass.push(FOOT_CLASS)
+            edgeFlags.push(0)
+            chords++
+        }
+    }
+    log(`  ${vertexLat.length} vertices, ${edgeFrom.length} edges (${chords} across squares)`)
 
     return {
         lat: Float64Array.from(vertexLat),
@@ -297,7 +352,7 @@ export function extractRoadNetwork(
         edgeFrom: Uint32Array.from(edgeFrom),
         edgeTo: Uint32Array.from(edgeTo),
         edgeClass: Uint8Array.from(edgeClass),
-        edgeOneway: Uint8Array.from(edgeOneway),
+        edgeFlags: Uint8Array.from(edgeFlags),
     }
 }
 /** Compact binary file: magic, two counts, then the arrays back to back. */
@@ -324,9 +379,9 @@ export function writeRoadNetwork(path: string, network: RoadNetwork): void {
             network.edgeClass.byteLength,
         ),
         Buffer.from(
-            network.edgeOneway.buffer,
-            network.edgeOneway.byteOffset,
-            network.edgeOneway.byteLength,
+            network.edgeFlags.buffer,
+            network.edgeFlags.byteOffset,
+            network.edgeFlags.byteLength,
         ),
     ]
     writeFileSync(path, Buffer.concat(parts))
@@ -351,7 +406,7 @@ export function readRoadNetwork(path: string): RoadNetwork {
     const edgeFrom = new Uint32Array(take(edges * 4))
     const edgeTo = new Uint32Array(take(edges * 4))
     const edgeClass = new Uint8Array(take(edges))
-    const edgeOneway = new Uint8Array(take(edges))
+    const edgeFlags = new Uint8Array(take(edges))
     if (offset !== file.length) throw new Error(`${path} has an unexpected size`)
-    return { lat, lon, edgeFrom, edgeTo, edgeClass, edgeOneway }
+    return { lat, lon, edgeFrom, edgeTo, edgeClass, edgeFlags }
 }

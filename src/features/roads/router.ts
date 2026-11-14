@@ -3,7 +3,9 @@
 import {
     EDGE_CLASSES,
     FOOT_CLASS,
+    NO_FOOT_FLAG,
     NO_WALKING_CLASSES,
+    ONEWAY_FLAG,
     TRAM_CLASS,
     type RoadNetwork,
 } from "./road-network"
@@ -23,6 +25,12 @@ const MAX_POPS = 200_000
  * to one leaves every stop unreachable.
  */
 const MIN_WALK_NETWORK_VERTICES = 500
+/**
+ * The bit between a point and the nearest path is measured as the crow flies; nobody walks it
+ * that straight (gardens, fences, a park lawn), so it counts this much longer. Same factor as
+ * the board uses for walks without a road file.
+ */
+const OFF_NETWORK_DETOUR = 1.25
 
 // --- INTERFACES ---
 
@@ -153,34 +161,40 @@ export class RoadRouter {
     private graph(mode: RouteMode): Graph {
         let graph = this.graphs.get(mode)
         if (!graph) {
+            const { edgeClass, edgeFlags } = this.network
             graph =
                 mode === "tram"
-                    ? this.build((roadClass) => roadClass === TRAM_CLASS, false)
+                    ? this.build((e) => edgeClass[e] === TRAM_CLASS, false)
                     : mode === "road"
                       ? this.build(
-                            (roadClass) => roadClass !== TRAM_CLASS && roadClass !== FOOT_CLASS,
+                            (e) => edgeClass[e] !== TRAM_CLASS && edgeClass[e] !== FOOT_CLASS,
                             false,
                         )
-                      : this.build(
-                            (roadClass) =>
-                                roadClass !== TRAM_CLASS && !NO_WALKING_CLASSES.has(roadClass),
-                            true,
-                        )
+                      : this.build((e) => {
+                            const roadClass = edgeClass[e] as number
+                            return (
+                                roadClass !== TRAM_CLASS &&
+                                !NO_WALKING_CLASSES.has(roadClass) &&
+                                ((edgeFlags[e] as number) & NO_FOOT_FLAG) === 0
+                            )
+                        }, true)
             this.graphs.set(mode, graph)
         }
         return graph
     }
 
-    private build(include: (roadClass: number) => boolean, twoWay: boolean): Graph {
-        const { lat, lon, edgeFrom, edgeTo, edgeClass, edgeOneway } = this.network
+    /** A graph over the edges `include` accepts (by edge index). */
+    private build(include: (edge: number) => boolean, twoWay: boolean): Graph {
+        const { lat, lon, edgeFrom, edgeTo, edgeClass, edgeFlags } = this.network
         const vertices = lat.length
         const degree = new Uint32Array(vertices + 1)
         const edges: number[] = []
         for (let e = 0; e < edgeFrom.length; e++) {
-            if (!include(edgeClass[e] as number)) continue
+            if (!include(e)) continue
             edges.push(e)
             degree[edgeFrom[e] as number]!++
-            if (twoWay || edgeOneway[e] === 0) degree[edgeTo[e] as number]!++
+            if (twoWay || ((edgeFlags[e] as number) & ONEWAY_FLAG) === 0)
+                degree[edgeTo[e] as number]!++
         }
         const arcStart = new Uint32Array(vertices + 1)
         for (let v = 0; v < vertices; v++)
@@ -205,7 +219,7 @@ export class RoadRouter {
             let slot = fill[a]!++
             arcTo[slot] = b
             arcCost[slot] = cost
-            if (twoWay || edgeOneway[e] === 0) {
+            if (twoWay || ((edgeFlags[e] as number) & ONEWAY_FLAG) === 0) {
                 slot = fill[b]!++
                 arcTo[slot] = a
                 arcCost[slot] = cost
@@ -282,7 +296,7 @@ export class RoadRouter {
         const connected = (v: number) => !networks || (networks.size[v] as number) >= minimum
         let island: Snap | null = null
         let islandDistance = MAX_SNAP_METERS
-        const { lat, lon, edgeFrom, edgeTo, edgeOneway, edgeClass } = this.network
+        const { lat, lon, edgeFrom, edgeTo, edgeFlags, edgeClass } = this.network
         const cy = Math.floor(point[0] / CELL_DEGREES)
         const cx = Math.floor(point[1] / CELL_DEGREES)
         let best: Snap | null = null
@@ -317,7 +331,7 @@ export class RoadRouter {
                             from: a,
                             to: b,
                             t,
-                            oneway: !graph.twoWay && edgeOneway[e] === 1,
+                            oneway: !graph.twoWay && ((edgeFlags[e] as number) & ONEWAY_FLAG) !== 0,
                             factor: graph.twoWay
                                 ? 1
                                 : (EDGE_CLASSES[edgeClass[e] as number]?.[1] ?? 1),
@@ -361,7 +375,8 @@ export class RoadRouter {
         const graph = this.graph("foot")
         const round = this.nextRound()
         const heap = new MinHeap()
-        const offset = this.meters(from[0], from[1], start.point[0], start.point[1])
+        const offset =
+            this.meters(from[0], from[1], start.point[0], start.point[1]) * OFF_NETWORK_DETOUR
         const relax = (v: number, cost: number) => {
             if (cost > maxMeters || (this.stamp[v] === round && (this.score[v] as number) <= cost))
                 return
@@ -397,7 +412,7 @@ export class RoadRouter {
     /**
      * Walking distance in metres from one point to each target, along roads and footpaths, or null
      * for a target that is off the network or further than `maxMeters`. The bits between a point
-     * and the nearest path are counted as the crow flies.
+     * and the nearest path count as the crow flies, times OFF_NETWORK_DETOUR.
      */
     walkDistances(from: LatLon, targets: LatLon[], maxMeters: number): (number | null)[] {
         const search = this.walkSearch(from, maxMeters)
@@ -422,7 +437,9 @@ export class RoadRouter {
                     offset +
                         this.meters(start.point[0], start.point[1], end.point[0], end.point[1]),
                 )
-            const total = along + this.meters(target[0], target[1], end.point[0], end.point[1])
+            const total =
+                along +
+                this.meters(target[0], target[1], end.point[0], end.point[1]) * OFF_NETWORK_DETOUR
             return Number.isFinite(total) && total <= maxMeters ? Math.round(total) : null
         })
     }

@@ -6,6 +6,7 @@ import { describe, it } from "node:test"
 import {
     EDGE_CLASSES,
     FOOT_CLASS,
+    NO_FOOT_FLAG,
     TRAM_CLASS,
     type RoadNetwork,
 } from "@/features/roads/road-network"
@@ -43,7 +44,7 @@ function ladder(): RoadNetwork {
         edgeFrom: Uint32Array.from(edges.map((edge) => edge[0])),
         edgeTo: Uint32Array.from(edges.map((edge) => edge[1])),
         edgeClass: Uint8Array.from(edges.map((edge) => edge[2])),
-        edgeOneway: Uint8Array.from(edges.map((edge) => edge[3])),
+        edgeFlags: Uint8Array.from(edges.map((edge) => edge[3])),
     }
 }
 
@@ -110,7 +111,7 @@ describe("road router", () => {
             edgeFrom: Uint32Array.from([...withPath.edgeFrom, 3]),
             edgeTo: Uint32Array.from([...withPath.edgeTo, 2]),
             edgeClass: Uint8Array.from([...withPath.edgeClass, FOOT_CLASS]),
-            edgeOneway: Uint8Array.from([...withPath.edgeOneway, 0]),
+            edgeFlags: Uint8Array.from([...withPath.edgeFlags, 0]),
         }
         const walking = new RoadRouter(footpath)
         // The diagonal path (3 → 2) is shorter than round the block…
@@ -142,7 +143,7 @@ describe("road router", () => {
             edgeFrom: Uint32Array.from([...base.edgeFrom, 8]),
             edgeTo: Uint32Array.from([...base.edgeTo, 9]),
             edgeClass: Uint8Array.from([...base.edgeClass, FOOT_CLASS]),
-            edgeOneway: Uint8Array.from([...base.edgeOneway, 0]),
+            edgeFlags: Uint8Array.from([...base.edgeFlags, 0]),
         }
         const [walk] = new RoadRouter(island).walkDistances(
             [52.0012, 5.0009],
@@ -153,5 +154,30 @@ describe("road router", () => {
             typeof walk === "number" && walk < 250,
             `expected a walk under 250 m, got ${walk}`,
         )
+    })
+
+    it("never walks along a road closed to walkers, though buses still drive it", () => {
+        const base = ladder()
+        // The top street (0 - 1 - 2) becomes foot=no.
+        const closed: RoadNetwork = {
+            ...base,
+            edgeFlags: Uint8Array.from(base.edgeFlags, (flags, e) =>
+                e < 2 ? flags | NO_FOOT_FLAG : flags,
+            ),
+        }
+        const router = new RoadRouter(closed)
+        assert.notStrictEqual(router.route("road", [52.002, 5.0], [52.002, 5.0032]), null)
+        // On foot from the top-left to the top-right corner: down, along the bottom and back up.
+        const [walk] = router.walkDistances([52.002, 5.0], [[52.002, 5.0032]], 2000)
+        assert.ok(
+            typeof walk === "number" && walk > 400,
+            `expected a detour over 400 m, got ${walk}`,
+        )
+    })
+
+    it("counts the bit off the network as longer than the crow flies", () => {
+        // 55 m north of the top street, straight above vertex 0.
+        const [walk] = router.walkDistances([52.0025, 5.0], [[52.002, 5.0]], 2000)
+        assert.ok(typeof walk === "number" && walk > 60, `expected over 60 m, got ${walk}`)
     })
 })

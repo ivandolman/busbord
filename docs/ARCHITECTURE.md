@@ -40,7 +40,7 @@ so tests inject fakes.
 | Start from a train platform ("spoor")      | `network-map/platform-picker.tsx`, `hooks/use-train-station.ts`, `board.repository.ts`      |
 | Transfers (one change)                     | `features/board/transfers.ts`                                                               |
 | Realtime delays / alerts                   | `features/board/realtime.ts`, `alerts.ts`                                                   |
-| Walking routes and areas                   | `features/roads/walking.ts`, `router.ts`                                                    |
+| Walking routes and areas                   | `features/roads/walking.ts`, `router.ts`, `area-chords.ts`                                  |
 | Lines drawn along streets                  | `features/roads/line-path.ts`, `features/network/patterns.ts`                               |
 | Shared corridors / side-by-side lines      | `features/network/corridors.ts`, `app/_components/network-map/bundles.ts`, `offset-path.ts` |
 | What the map highlights for a selection    | `features/network/reachable.ts`, `segments.ts`, `network-map/line-focus.ts`                 |
@@ -113,7 +113,8 @@ src/features/
                          search-results (place search order)
   network/               map network: patterns, corridors, segments, reachable, night-lines, service
   geocode/               PDOK Locatieserver client: address search and address at a point
-  roads/                 OSM: pbf reader, road-network (binary file), router, walking, line-path
+  roads/                 OSM: pbf reader, road-network (binary file), router, walking, line-path,
+                         area-chords (straight walks across squares)
   gtfs/                  csv, zip, download, importer, gtfs-tables (DDL), demo-feed
   saved-routes/          schema + list/schedule logic (shared server/browser)
   user-data/             user.sqlite service + settings schema
@@ -136,5 +137,5 @@ public/                  icons/*.svg, map-styles/*.png (previews), sw.js
 Unit tests sit next to their source as `*.tests.ts` (`pnpm test`); `*.integration.tests.ts`
 run against the demo feed (`pnpm test:integration`). Covered: board (alerts, build-board,
 endpoint, group, stop-name, search-results, integration), geocode, gtfs (csv, download), network (corridors, patterns),
-roads (line-path, road-network, router), saved-routes, user-data, lib (auth, place, time),
+roads (area-chords, line-path, road-network, router), saved-routes, user-data, lib (auth, place, time),
 network-map/offset-path, network night lines, train station / platform places.
